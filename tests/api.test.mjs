@@ -9,64 +9,65 @@ const source = stripTypeScriptTypes(
 )
   .replace('import apiFetch from "@wordpress/api-fetch";', "")
   .replace("export { apiFetch };", "")
-  .replace("export async function postTitle", "async function postTitle");
-
+  .replace("export async function workflow", "async function workflow");
 function adapter(fetch) {
-  return vm.runInNewContext(`${source}\npostTitle`, { apiFetch: fetch });
+  return vm.runInNewContext(`${source}\nworkflow`, { apiFetch: fetch });
 }
+const state = {
+  title: "",
+  status: "draft",
+  previewUrl: "https://example.test/?preview=true",
+};
 
-test("save sends only title, including empty titles, and uses server raw value", async () => {
+test("autosave sends the operation and raw title, including an empty title", async () => {
   const calls = [];
-  const save = adapter(async (options) => {
+  const call = adapter(async (options) => {
     calls.push(JSON.parse(JSON.stringify(options)));
-    return { id: 4, title: { raw: "Server value", rendered: "Other value" } };
+    return state;
   });
-  assert.equal(await save("/wp/v2/pages/4", 4, ""), "Server value");
+  assert.equal(await call("/forma/v1/posts/4/workflow", "autosave", ""), state);
   assert.deepEqual(calls, [
     {
-      path: "/wp/v2/pages/4?context=edit&_fields=id,title",
+      path: "/forma/v1/posts/4/workflow",
       method: "POST",
-      data: { title: "" },
+      data: { operation: "autosave", title: "" },
     },
   ]);
 });
-
-test("read carries abort signal and does not send a write payload", async () => {
-  const controller = new AbortController();
-  const read = adapter(async (options) => {
-    assert.equal(options.method, "GET");
-    assert.equal(options.signal, controller.signal);
-    assert.equal("data" in options, false);
-    return { id: 4, title: { raw: "Title" } };
+test("publish carries no stale title or independently chosen status", async () => {
+  const call = adapter(async (options) => {
+    assert.deepEqual(JSON.parse(JSON.stringify(options.data)), {
+      operation: "publish",
+    });
+    return state;
   });
-  assert.equal(
-    await read("/wp/v2/pages/4", 4, undefined, controller.signal),
-    "Title",
-  );
+  await call("/forma/v1/posts/4/workflow", "publish");
 });
-
-test("wrong post and missing raw title cannot be treated as saved", async () => {
+test("invalid responses cannot be treated as saved", async () => {
   for (const response of [
-    { id: 5, title: { raw: "Wrong" } },
-    { id: 4, title: { rendered: "Only rendered" } },
+    {},
+    { ...state, status: "pending" },
+    { ...state, title: null },
   ]) {
     await assert.rejects(
-      adapter(async () => response)("/wp/v2/pages/4", 4, "Title"),
+      adapter(async () => response)(
+        "/forma/v1/posts/4/workflow",
+        "autosave",
+        "Title",
+      ),
     );
   }
 });
-
 test("permission, nonce and network failures remain failures", async () => {
   for (const failure of [
     { code: "rest_cookie_invalid_nonce", data: { status: 403 } },
     { data: { status: 401 } },
     new Error("Offline"),
   ]) {
-    const save = adapter(async () => {
-      throw failure;
-    });
     await assert.rejects(
-      save("/wp/v2/pages/4", 4, "Unsaved"),
+      adapter(async () => {
+        throw failure;
+      })("/forma/v1/posts/4/workflow", "autosave", "Unsaved"),
       (error) => error === failure,
     );
   }

@@ -35,6 +35,10 @@ if (!class_exists(Plugin::class)) {
 if (!class_exists(Assets::class)) {
     require_once __DIR__ . '/source/Assets.php';
 }
+if (!class_exists(Workflow::class)) {
+    require_once __DIR__ . '/source/Workflow.php';
+}
+add_action('rest_api_init', [Workflow::class, 'register']);
 
 // Registration is inert until the editor screen explicitly enqueues its assets.
 add_action('init', [Assets::class, 'register']);

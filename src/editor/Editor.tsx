@@ -1,166 +1,360 @@
 import React, { useEffect, useRef, useState } from "react";
-import { postTitle } from "../wordpress/api";
+import { workflow, type WorkflowState } from "../wordpress/api";
+import { Autosave } from "./Autosave";
 
 export interface EditorConfig {
   postId: number;
-  restPath: string;
+  workflowPath: string;
+  ajaxUrl: string;
+  lockNonce: string;
   previewUrl: string;
-  labels: {
-    context: string;
-    heading: string;
-    title: string;
-    preview: string;
-    loading: string;
-    error: string;
-    retry: string;
-    save: string;
-    saving: string;
-    saved: string;
-    saveError: string;
-    authError: string;
-  };
+  labels: Record<string, string>;
 }
 
-type TitleState =
-  | { status: "loading" }
-  | { status: "error" }
-  | { status: "loaded"; value: string };
+export function Editor({
+  postId,
+  workflowPath,
+  ajaxUrl,
+  lockNonce,
+  previewUrl,
+  labels,
+}: EditorConfig) {
+  const [state, setState] = useState<WorkflowState>();
+  const [restore, setRestore] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [preview, setPreview] = useState({ url: previewUrl, version: 0 });
+  const [, redraw] = useState(0);
+  const queue = useRef<Autosave<WorkflowState>>();
+  const current = useRef<WorkflowState>();
+  const acting = useRef(false);
+  const failedOperation = useRef<string>();
+  const mounted = useRef(false);
 
-export function Editor({ postId, restPath, previewUrl, labels }: EditorConfig) {
-  const [title, setTitle] = useState<TitleState>({ status: "loading" });
-  const [attempt, setAttempt] = useState(0);
-  const [savedTitle, setSavedTitle] = useState("");
-  const [saveState, setSaveState] = useState<
-    "idle" | "saving" | "saved" | "error" | "authError"
-  >("idle");
-  const [previewVersion, setPreviewVersion] = useState(0);
-  const saving = useRef(false);
-  const dirty = title.status === "loaded" && title.value !== savedTitle;
+  function adopt(next: WorkflowState, refresh = true) {
+    current.current = next;
+    setState(next);
+    const view = document.querySelector<HTMLAnchorElement>(
+      "#wp-admin-bar-view > a",
+    );
+    if (view) view.href = next.viewUrl;
+    if (refresh)
+      setPreview((old) => ({ url: next.previewUrl, version: old.version + 1 }));
+  }
 
-  useEffect(() => {
-    if (!dirty) return;
-    // Only attach while dirty: this is a best-effort browser exit warning,
-    // not durable recovery when a mobile browser or process is terminated.
-    const warn = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = true;
-    };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
+  function createQueue(value: string) {
+    queue.current?.dispose();
+    queue.current = new Autosave(
+      value,
+      (title) => workflow(workflowPath, "autosave", title),
+      (next) => {
+        if (mounted.current) adopt(next);
+        return next.autosave?.title ?? next.title;
+      },
+      () => {
+        if (mounted.current) redraw((n) => n + 1);
+      },
+    );
+  }
 
-  useEffect(() => {
-    const controller = new AbortController();
-    setTitle({ status: "loading" });
-    setSaveState("idle");
-    void postTitle(restPath, postId, undefined, controller.signal)
-      .then((value) => {
-        if (controller.signal.aborted) return;
-        setSavedTitle(value);
-        setTitle({ status: "loaded", value });
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setTitle({ status: "error" });
-      });
-    return () => controller.abort();
-  }, [postId, restPath, attempt]);
+  function release() {
+    const lock = current.current?.lock;
+    if (!lock) return;
+    // Core compares the exact lock before expiring it. Beacon is best effort;
+    // the normal WordPress timeout still applies after a terminated process.
+    navigator.sendBeacon(
+      ajaxUrl,
+      new URLSearchParams({
+        action: "wp-remove-post-lock",
+        post_ID: String(postId),
+        active_post_lock: lock,
+        _wpnonce: lockNonce,
+      }),
+    );
+  }
 
-  async function save(event: React.FormEvent) {
-    event.preventDefault();
-    if (!dirty || saving.current || title.status !== "loaded") return;
-    saving.current = true;
-    setSaveState("saving");
+  async function act(operation: string) {
+    if (acting.current) return;
+    acting.current = true;
+    setBusy(true);
+    setError("");
+    failedOperation.current = undefined;
     try {
-      const value = await postTitle(restPath, postId, title.value);
-      setSavedTitle(value);
-      setTitle({ status: "loaded", value });
-      setSaveState("saved");
-      setPreviewVersion((version) => version + 1);
-    } catch (error) {
-      const failure = error as { code?: string; data?: { status?: number } };
-      setSaveState(
-        failure?.code === "rest_cookie_invalid_nonce" ||
-          failure?.data?.status === 401 ||
-          failure?.data?.status === 403
-          ? "authError"
-          : "error",
+      if (operation === "publish" || operation === "draft")
+        await queue.current?.flush();
+      const next = await workflow(workflowPath, operation);
+      if (!mounted.current) return;
+      adopt(next);
+      if (operation === "open" || operation === "takeover") {
+        const pending = Boolean(queue.current?.dirty);
+        setRestore(Boolean(next.autosave) && !pending);
+        if (!queue.current?.dirty) createQueue(next.title);
+        else if (!next.lockOwner && !next.autosave?.otherChanges)
+          queue.current.retry();
+      } else {
+        setRestore(false);
+        createQueue(next.autosave?.title ?? next.title);
+      }
+      if (next.lockOwner && queue.current) queue.current.paused = true;
+      else if (!next.autosave && queue.current?.dirty) queue.current.retry();
+    } catch (failure) {
+      failedOperation.current = operation;
+      setError(
+        (failure as { message?: string })?.message || labels.connectionError,
       );
     } finally {
-      saving.current = false;
+      acting.current = false;
+      if (mounted.current) setBusy(false);
     }
   }
 
+  useEffect(() => {
+    mounted.current = true;
+    void act("open");
+    let pulsing = false;
+    const pulse = async () => {
+      if (pulsing || acting.current || !current.current) return;
+      pulsing = true;
+      try {
+        const next = await workflow(workflowPath, "pulse");
+        if (!mounted.current) return;
+        const regained = current.current?.lockOwner && !next.lockOwner;
+        current.current = {
+          ...current.current!,
+          lock: next.lock,
+          lockOwner: next.lockOwner,
+        };
+        setState(current.current);
+        if (next.lockOwner && queue.current) queue.current.paused = true;
+        if (regained) void act("open");
+      } catch {
+        /* Saves recheck the lock if its refresh fails. */
+      } finally {
+        pulsing = false;
+      }
+    };
+    const visible = () => {
+      if (document.visibilityState === "visible") void pulse();
+    };
+    const online = () => {
+      void pulse();
+      if (!current.current?.lockOwner) queue.current?.retry();
+    };
+    const warn = (event: BeforeUnloadEvent) => {
+      if (!queue.current?.dirty && !queue.current?.busy && !acting.current)
+        return;
+      event.preventDefault();
+      event.returnValue = true;
+    };
+    const navigate = async (event: MouseEvent) => {
+      const anchor =
+        event.target instanceof Element
+          ? event.target.closest<HTMLAnchorElement>("a[href]")
+          : null;
+      if (
+        !anchor ||
+        anchor.target === "_blank" ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey ||
+        (anchor.hash && anchor.pathname === location.pathname)
+      )
+        return;
+      if (acting.current) {
+        event.preventDefault();
+        return;
+      }
+      if (!queue.current?.dirty && !queue.current?.busy) return;
+      event.preventDefault();
+      acting.current = true;
+      setBusy(true);
+      setError("");
+      try {
+        await queue.current.flush();
+        acting.current = false;
+        location.assign(anchor.href);
+      } catch (failure) {
+        setError(
+          (failure as { message?: string })?.message || labels.connectionError,
+        );
+      } finally {
+        acting.current = false;
+        setBusy(false);
+      }
+    };
+    const timer = setInterval(() => void pulse(), 15000);
+    document.addEventListener("visibilitychange", visible);
+    window.addEventListener("online", online);
+    window.addEventListener("pageshow", visible);
+    window.addEventListener("pagehide", release);
+    window.addEventListener("beforeunload", warn);
+    document.addEventListener("click", navigate, true);
+    return () => {
+      mounted.current = false;
+      queue.current?.dispose();
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", visible);
+      window.removeEventListener("online", online);
+      window.removeEventListener("pageshow", visible);
+      window.removeEventListener("pagehide", release);
+      window.removeEventListener("beforeunload", warn);
+      document.removeEventListener("click", navigate, true);
+    };
+  }, []);
+
+  const saver = queue.current;
+  const saveError = saver?.error as {
+    message?: string;
+    data?: { status?: number };
+  } | null;
+  const authError =
+    saveError?.data?.status === 401 || saveError?.data?.status === 403;
+  const disabled =
+    busy ||
+    !state ||
+    Boolean(state.lockOwner) ||
+    restore ||
+    Boolean(state.autosave?.otherChanges);
   return (
     <div className="forma-editor__workspace">
       <iframe
-        key={`${postId}:${previewVersion}`}
+        key={preview.version}
         className="forma-editor__preview"
-        src={previewUrl}
+        src={preview.url}
         title={labels.preview}
       />
       <aside className="forma-editor__panel" aria-labelledby="forma-heading">
-        <form onSubmit={save}>
-          <div className="forma-editor__actions">
-            <span role="status">
-              {saveState === "saved" ? labels.saved : ""}
-            </span>
+        <div className="forma-editor__actions">
+          <span role="status">
+            {busy
+              ? labels.working
+              : saver?.error
+                ? labels.unsaved
+                : saver?.busy
+                  ? labels.saving
+                  : saver?.dirty
+                    ? labels.unsaved
+                    : state
+                      ? labels.autosaved
+                      : labels.loading}
+          </span>
+          {state?.canPublish && (
             <button
-              type="submit"
               className="button button-primary"
-              disabled={!dirty || saveState === "saving"}
-            >
-              {saveState === "saving" ? labels.saving : labels.save}
-            </button>
-          </div>
-          <header className="forma-editor__panel-header">
-            <p>{labels.context}</p>
-            <h1 id="forma-heading">{labels.heading}</h1>
-          </header>
-          <div className="forma-editor__controls">
-            <label htmlFor="forma-title">{labels.title}</label>
-            <input
-              id="forma-title"
-              type="text"
-              disabled={title.status !== "loaded"}
-              readOnly={saveState === "saving"}
-              onChange={(event) => {
-                setTitle({ status: "loaded", value: event.target.value });
-                setSaveState("idle");
-              }}
-              value={title.status === "loaded" ? title.value : ""}
-              aria-busy={title.status === "loading"}
-              aria-describedby={
-                title.status !== "loaded" ? "forma-title-status" : undefined
+              disabled={
+                disabled ||
+                (state.status === "publish" && !state.autosave && !saver?.dirty)
               }
-            />
-            {title.status === "loading" && (
-              <p id="forma-title-status" role="status">
-                {labels.loading}
+              onClick={() => void act("publish")}
+            >
+              {state.status === "draft" ? labels.publish : labels.update}
+            </button>
+          )}
+        </div>
+        <header className="forma-editor__panel-header">
+          <p>{labels.context}</p>
+          <h1 id="forma-heading">{labels.heading}</h1>
+        </header>
+        <div className="forma-editor__controls">
+          {state && (
+            <p>
+              {state.status === "draft"
+                ? labels.draftStatus
+                : labels.publishedStatus}
+            </p>
+          )}
+          {state?.lockOwner && (
+            <div role="alert">
+              <p>
+                {labels.locked} {state.lockOwner}
               </p>
-            )}
-            {title.status === "error" && (
-              <div>
-                <p id="forma-title-status" role="alert">
-                  {labels.error}
-                </p>
+              <button
+                className="button"
+                disabled={busy}
+                onClick={() => void act("takeover")}
+              >
+                {labels.takeover}
+              </button>
+            </div>
+          )}
+          {(restore || state?.autosave?.otherChanges) && !state?.lockOwner && (
+            <div>
+              <p>{labels.restoreNotice}</p>
+              {restore && (
                 <button
-                  type="button"
                   className="button"
-                  onClick={() => setAttempt(attempt + 1)}
+                  disabled={busy}
+                  onClick={() => void act("resume")}
                 >
-                  {labels.retry}
+                  {labels.resume}
                 </button>
-              </div>
-            )}
-            {(saveState === "error" || saveState === "authError") && (
-              <p role="alert">
-                {saveState === "authError"
-                  ? labels.authError
-                  : labels.saveError}
+              )}{" "}
+              <button
+                className="button"
+                disabled={busy}
+                onClick={() => {
+                  if (window.confirm(labels.discardConfirm))
+                    void act("discard");
+                }}
+              >
+                {labels.discard}
+              </button>
+            </div>
+          )}
+          {state?.autosave?.otherChanges && (
+            <p role="alert">{labels.otherChanges}</p>
+          )}
+          <label htmlFor="forma-title">{labels.title}</label>
+          <input
+            id="forma-title"
+            type="text"
+            disabled={disabled}
+            value={saver?.value ?? ""}
+            onChange={(event) => saver?.edit(event.target.value)}
+          />
+          {(error || saveError) && (
+            <div role="alert">
+              <p>
+                {error ||
+                  (authError ? labels.authError : saveError?.message) ||
+                  labels.connectionError}
               </p>
-            )}
-          </div>
-        </form>
+              <button
+                className="button"
+                disabled={busy}
+                onClick={() => {
+                  setError("");
+                  if (failedOperation.current)
+                    void act(failedOperation.current);
+                  else if (!state) void act("open");
+                  else saver?.retry();
+                }}
+              >
+                {labels.retry}
+              </button>
+            </div>
+          )}
+          {state?.status === "publish" && state.canPublish && (
+            <p>
+              <button
+                className="button"
+                disabled={disabled}
+                onClick={() => {
+                  if (window.confirm(labels.draftConfirm)) void act("draft");
+                }}
+              >
+                {labels.draft}
+              </button>
+            </p>
+          )}
+          {state?.revisionUrl && (
+            <p>
+              <a href={state.revisionUrl}>{labels.revisions}</a>
+            </p>
+          )}
+        </div>
       </aside>
     </div>
   );

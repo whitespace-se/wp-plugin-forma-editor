@@ -2,20 +2,34 @@
 import apiFetch from "@wordpress/api-fetch";
 export { apiFetch };
 
-export async function postTitle(
+export interface WorkflowState {
+  title: string;
+  status: "draft" | "publish";
+  autosave: { title: string; otherChanges: boolean } | null;
+  canPublish: boolean;
+  lockOwner: string | null;
+  lock: string | null;
+  previewUrl: string;
+  viewUrl: string;
+  revisionUrl: string | null;
+}
+
+export async function workflow(
   path: string,
-  postId: number,
-  value?: string,
-  signal?: AbortSignal,
+  operation: string,
+  title?: string,
 ) {
-  const post = await apiFetch<{ id: number; title: { raw: string } }>({
-    path: `${path}?context=edit&_fields=id,title`,
-    method: value === undefined ? "GET" : "POST",
-    ...(value === undefined ? {} : { data: { title: value } }),
-    signal,
+  const state = await apiFetch<WorkflowState>({
+    path,
+    method: "POST",
+    data: { operation, ...(title === undefined ? {} : { title }) },
   });
-  if (post.id !== postId || typeof post.title?.raw !== "string") {
-    throw new Error("Unexpected post response");
+  if (
+    typeof state.title !== "string" ||
+    !["draft", "publish"].includes(state.status) ||
+    typeof state.previewUrl !== "string"
+  ) {
+    throw new Error("Unexpected editor response");
   }
-  return post.title.raw;
+  return state;
 }
