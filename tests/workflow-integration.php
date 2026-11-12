@@ -1,7 +1,9 @@
 <?php
 // Run explicitly with wp eval-file on a disposable/local WordPress database.
 // Creates only temporary users and posts; finally removes all test records.
-require_once dirname(__DIR__) . '/source/Workflow.php';
+if (!class_exists(\Whitespace\FormaEditor\Workflow::class)) {
+    require_once dirname(__DIR__) . '/source/Workflow.php';
+}
 require_once ABSPATH . 'wp-admin/includes/post.php';
 require_once ABSPATH . 'wp-admin/includes/user.php';
 // This suite performs multiple REST requests in one PHP process. Use core's
