@@ -9,7 +9,7 @@ function register_assets(): void
     $directory = dirname(__DIR__) . '/build/';
 
     // A source checkout must remain activatable before the first frontend build.
-    if (!is_readable($directory . 'editor.asset.php') || !is_readable($directory . 'editor.js')) {
+    if (!is_readable($directory . 'editor.asset.php') || !is_readable($directory . 'editor.js') || !is_readable($directory . 'editor.css')) {
         return;
     }
 
@@ -18,7 +18,5 @@ function register_assets(): void
 
     wp_register_script('forma-editor', $url . 'editor.js', $asset['dependencies'], $asset['version'], true);
 
-    if (is_readable($directory . 'editor.css')) {
-        wp_register_style('forma-editor', $url . 'editor.css', [], $asset['version']);
-    }
+    wp_register_style('forma-editor', $url . 'editor.css', [], $asset['version']);
 }

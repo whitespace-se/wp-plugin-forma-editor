@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import {
   wordpressAssets,
   wordpressExternals,
-} from "./tooling/wordpress-assets";
+} from "./tooling/wordpress-assets.ts";
 
 export default defineConfig(({ command, mode }) => {
   if (command === "serve") {
