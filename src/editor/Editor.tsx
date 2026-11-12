@@ -6,6 +6,7 @@ export interface EditorConfig {
   restPath: string;
   previewUrl: string;
   labels: {
+    context: string;
     heading: string;
     title: string;
     preview: string;
@@ -53,33 +54,41 @@ export function Editor({ postId, restPath, previewUrl, labels }: EditorConfig) {
         title={labels.preview}
       />
       <aside className="forma-editor__panel" aria-labelledby="forma-heading">
-        <h1 id="forma-heading">{labels.heading}</h1>
-        <label htmlFor="forma-title">{labels.title}</label>
-        <input
-          id="forma-title"
-          type="text"
-          readOnly
-          value={title.status === "loaded" ? title.value : ""}
-          aria-busy={title.status === "loading"}
-          aria-describedby={
-            title.status !== "loaded" ? "forma-title-status" : undefined
-          }
-        />
-        {title.status === "loading" && (
-          <p id="forma-title-status" role="status">
-            {labels.loading}
-          </p>
-        )}
-        {title.status === "error" && (
-          <div>
-            <p id="forma-title-status" role="alert">
-              {labels.error}
+        <header className="forma-editor__panel-header">
+          <p>{labels.context}</p>
+          <h1 id="forma-heading">{labels.heading}</h1>
+        </header>
+        <div className="forma-editor__controls">
+          <label htmlFor="forma-title">{labels.title}</label>
+          <input
+            id="forma-title"
+            type="text"
+            readOnly
+            value={title.status === "loaded" ? title.value : ""}
+            aria-busy={title.status === "loading"}
+            aria-describedby={
+              title.status !== "loaded" ? "forma-title-status" : undefined
+            }
+          />
+          {title.status === "loading" && (
+            <p id="forma-title-status" role="status">
+              {labels.loading}
             </p>
-            <button className="button" onClick={() => setAttempt(attempt + 1)}>
-              {labels.retry}
-            </button>
-          </div>
-        )}
+          )}
+          {title.status === "error" && (
+            <div>
+              <p id="forma-title-status" role="alert">
+                {labels.error}
+              </p>
+              <button
+                className="button"
+                onClick={() => setAttempt(attempt + 1)}
+              >
+                {labels.retry}
+              </button>
+            </div>
+          )}
+        </div>
       </aside>
     </div>
   );

@@ -101,7 +101,8 @@ final class Plugin
             'nonce' => wp_create_nonce('wp_rest'),
             'previewUrl' => $preview,
             'labels' => [
-                'heading' => get_post_type_object($post->post_type)->labels->edit_item,
+                'context' => __('Du redigerar', 'forma-editor'),
+                'heading' => get_post_type_object($post->post_type)->labels->singular_name,
                 'title' => __('Titel', 'forma-editor'),
                 'preview' => __('Förhandsvisning av sidan', 'forma-editor'),
                 'loading' => __('Hämtar titel…', 'forma-editor'),

@@ -29,28 +29,50 @@
 
 .forma-editor__panel {
   box-sizing: border-box;
-  padding: 24px;
   overflow: auto;
-  background: white;
-  border-inline-start: 1px solid #c3c4c7;
+  background: #f0f0f1;
+  color: #50575e;
+  border-inline-start: 1px solid #dcdcde;
+}
+
+/* Match WordPress customize-controls.css without loading its global layout. */
+.forma-editor__panel-header {
+  padding: 10px 10px 12px 14px;
+  background: #fff;
+  border-bottom: 1px solid #dcdcde;
+}
+
+.forma-editor__panel-header p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.9;
+  font-weight: 400;
+}
+
+.forma-editor__controls {
+  padding: 12px;
 }
 
 .forma-editor__panel label {
   display: block;
-  margin-block-end: 8px;
+  margin-block-end: 4px;
+  font-size: 14px;
+  line-height: 1.75;
   font-weight: 600;
 }
 
 .forma-editor__panel input {
   width: 100%;
   margin: 0;
+  background: #fff;
 }
 
 .forma-editor__panel h1 {
-  margin: 0 0 24px;
+  margin: 0;
   font-size: 20px;
-  line-height: 1.4;
-  font-weight: 400;
+  line-height: 26px;
+  font-weight: 200;
+  color: inherit;
 }
 
 @media screen and (max-width: 782px) {
