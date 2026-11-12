@@ -1,6 +1,5 @@
 import React, { type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
-import "./tokens.css";
 import "./layout.css";
 import { apiFetch } from "../wordpress/api";
 import { Editor, type EditorConfig } from "./Editor";

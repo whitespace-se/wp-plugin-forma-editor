@@ -28,9 +28,10 @@ toolbar to view the page or switch to the classic editor. Content is not
 modified. Custom post types must opt in through `forma_editor_post_types` and
 support titles, REST access and frontend viewing.
 
-The iframe remains interactive in this first step. Navigating inside it does not
-change the post selected in the editor shell; use the toolbar to leave Forma
-before choosing another post.
+The preview blocks link/button activation and form submission while retaining
+scrolling. Use the toolbar to view the interactive site or choose another post.
+The guard applies only to authenticated Forma previews; ordinary pages retain
+their normal behavior.
 
 ## License
 

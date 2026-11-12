@@ -46,33 +46,11 @@
   margin: 0;
 }
 
-.forma-editor__panel input:focus {
-  border-color: var(--forma-accent);
-  box-shadow: 0 0 0 1px var(--forma-accent);
-}
-
-.forma-editor-screen #wpadminbar,
-.forma-editor-screen #wpadminbar .menupop .ab-sub-wrapper {
-  background: var(--forma-accent);
-}
-
-.forma-editor-screen #wpadminbar .ab-item,
-.forma-editor-screen #wpadminbar .ab-icon::before,
-.forma-editor-screen #wpadminbar .ab-item::before,
-.forma-editor-screen #wpadminbar .ab-label {
-  color: white;
-}
-
-.forma-editor-screen #wpadminbar li.hover > .ab-item,
-.forma-editor-screen #wpadminbar .ab-item:hover,
-.forma-editor-screen #wpadminbar .ab-item:focus {
-  background: var(--forma-accent-hover);
-  color: white;
-}
-
-.forma-editor-screen #wpadminbar .ab-item:focus-visible {
-  outline: 2px solid white;
-  outline-offset: -2px;
+.forma-editor__panel h1 {
+  margin: 0 0 24px;
+  font-size: 20px;
+  line-height: 1.4;
+  font-weight: 400;
 }
 
 @media screen and (max-width: 782px) {

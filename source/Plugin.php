@@ -101,6 +101,7 @@ final class Plugin
             'nonce' => wp_create_nonce('wp_rest'),
             'previewUrl' => $preview,
             'labels' => [
+                'heading' => get_post_type_object($post->post_type)->labels->edit_item,
                 'title' => __('Titel', 'forma-editor'),
                 'preview' => __('Förhandsvisning av sidan', 'forma-editor'),
                 'loading' => __('Hämtar titel…', 'forma-editor'),
@@ -185,6 +186,20 @@ final class Plugin
             // public response. This marker does not grant access to draft content.
             nocache_headers();
         }
+    }
+
+    public static function preview_guard(): void
+    {
+        if (!self::is_frame_request()) {
+            return;
+        }
+        // Install before theme handlers. This interaction policy is not a
+        // sandbox against scripts running on the site.
+        $path = dirname(__DIR__) . '/assets/preview.js';
+        wp_print_script_tag([
+            'src' => add_query_arg('ver', (string) filemtime($path), plugin_dir_url(FORMA_EDITOR_FILE) . 'assets/preview.js'),
+        ]);
+        echo '<style>.modularity-edit-module{display:none!important}</style>';
     }
 
 }

@@ -6,6 +6,7 @@ export interface EditorConfig {
   restPath: string;
   previewUrl: string;
   labels: {
+    heading: string;
     title: string;
     preview: string;
     loading: string;
@@ -51,7 +52,8 @@ export function Editor({ postId, restPath, previewUrl, labels }: EditorConfig) {
         src={previewUrl}
         title={labels.preview}
       />
-      <aside className="forma-editor__panel" aria-label={labels.title}>
+      <aside className="forma-editor__panel" aria-labelledby="forma-heading">
+        <h1 id="forma-heading">{labels.heading}</h1>
         <label htmlFor="forma-title">{labels.title}</label>
         <input
           id="forma-title"

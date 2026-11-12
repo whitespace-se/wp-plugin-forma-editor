@@ -1,5 +1,0 @@
-.forma-editor-screen {
-  --forma-accent: #075e54;
-  --forma-accent-hover: color-mix(in oklab, var(--forma-accent), black 15%);
-  --forma-accent-subtle: color-mix(in oklab, var(--forma-accent) 8%, white);
-}
