@@ -197,6 +197,7 @@ final class Plugin
         // sandbox against scripts running on the site.
         $path = dirname(__DIR__) . '/assets/preview.js';
         wp_print_script_tag([
+            'id' => 'forma-preview-guard-js',
             'src' => add_query_arg('ver', (string) filemtime($path), plugin_dir_url(FORMA_EDITOR_FILE) . 'assets/preview.js'),
         ]);
         echo '<style>.modularity-edit-module{display:none!important}</style>';
