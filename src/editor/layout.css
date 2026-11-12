@@ -36,6 +36,15 @@
 }
 
 /* Match WordPress customize-controls.css without loading its global layout. */
+.forma-editor__actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #dcdcde;
+}
+
 .forma-editor__panel-header {
   padding: 10px 10px 12px 14px;
   background: #fff;

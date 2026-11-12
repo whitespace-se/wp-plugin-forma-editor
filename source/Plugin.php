@@ -108,6 +108,11 @@ final class Plugin
                 'loading' => __('Hämtar titel…', 'forma-editor'),
                 'error' => __('Titeln kunde inte hämtas. Försök igen.', 'forma-editor'),
                 'retry' => __('Försök igen', 'forma-editor'),
+                'save' => __('Spara', 'forma-editor'),
+                'saving' => __('Sparar…', 'forma-editor'),
+                'saved' => __('Sparat', 'forma-editor'),
+                'saveError' => __('Titeln kunde inte sparas. Din ändring finns kvar. Försök spara igen.', 'forma-editor'),
+                'authError' => __('Din inloggning eller behörighet kunde inte verifieras. Kopiera din ändring innan du laddar om sidan eller loggar in igen.', 'forma-editor'),
             ],
         ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) . ');');
     }

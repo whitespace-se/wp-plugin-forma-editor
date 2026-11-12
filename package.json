@@ -15,7 +15,7 @@
     "format:check": "prettier --check .",
     "lint:php": "php -l forma-editor.php && php -l source/Assets.php && php -l source/Plugin.php",
     "test:php": "php tests/editor-policy.php",
-    "test:js": "node --test tests/preview.test.mjs",
+    "test:js": "node --test tests/*.test.mjs",
     "check": "npm run typecheck && npm run format:check && npm run lint:php && npm run test:php && npm run test:js"
   },
   "devDependencies": {
