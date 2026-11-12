@@ -1,0 +1,33 @@
+{
+  "name": "whitespace-se/wp-plugin-forma-editor",
+  "description": "A visual editing workspace for WordPress and Municipio.",
+  "type": "wordpress-plugin",
+  "license": "GPL-2.0-or-later",
+  "homepage": "https://github.com/whitespace-se/wp-plugin-forma-editor",
+  "authors": [
+    {
+      "name": "Whitespace",
+      "homepage": "https://whitespace.se"
+    }
+  ],
+  "require": {
+    "php": "^8.1",
+    "composer/installers": "^2.3"
+  },
+  "autoload": {
+    "psr-4": {
+      "Whitespace\\FormaEditor\\": "source/"
+    }
+  },
+  "extra": {
+    "installer-name": "forma-editor"
+  },
+  "config": {
+    "allow-plugins": {
+      "composer/installers": true
+    }
+  },
+  "scripts": {
+    "test": "@php tests/editor-policy.php"
+  }
+}
