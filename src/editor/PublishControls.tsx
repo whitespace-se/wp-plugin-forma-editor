@@ -80,9 +80,9 @@ export function PublishControls({
         className="forma-editor__publish-section"
         aria-labelledby="forma-publish-heading"
       >
-        <div className="forma-editor__section-header">
-          <h2 id="forma-publish-heading">{labels.publish}</h2>
-        </div>
+        <h2 id="forma-publish-heading" className="screen-reader-text">
+          {labels.publish}
+        </h2>
         <div className="forma-editor__section-content">
           <div className="misc-pub-section">
             <span

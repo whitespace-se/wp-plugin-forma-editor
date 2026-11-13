@@ -326,6 +326,38 @@ export function Editor({
           <p>{labels.context}</p>
           <h1 id="forma-heading">{labels.heading}</h1>
         </header>
+        {state ? (
+          <PublishControls
+            key={state.status}
+            status={state.status}
+            changed={Boolean(state.autosave || saver?.dirty)}
+            disabled={disabled}
+            hasAutosave={Boolean(state.autosave)}
+            canPublish={state.canPublish}
+            revisionUrl={state.revisionUrl}
+            actionsTarget={actionsTarget}
+            saveStatus={
+              busy
+                ? labels.working
+                : saver?.error
+                  ? labels.unsaved
+                  : saver?.busy
+                    ? labels.saving
+                    : saver?.dirty
+                      ? labels.unsaved
+                      : state
+                        ? labels.autosaved
+                        : labels.loading
+            }
+            labels={labels}
+            commit={(operation) => void act(operation)}
+            discard={() => {
+              if (window.confirm(labels.discardConfirm)) void act("discard");
+            }}
+          />
+        ) : (
+          <p role="status">{labels.loading}</p>
+        )}
         <div className="forma-editor__controls">
           {lockError && (
             <div className="notice notice-error inline">
@@ -374,38 +406,6 @@ export function Editor({
                 {labels.retry}
               </button>
             </div>
-          )}
-          {state ? (
-            <PublishControls
-              key={state.status}
-              status={state.status}
-              changed={Boolean(state.autosave || saver?.dirty)}
-              disabled={disabled}
-              hasAutosave={Boolean(state.autosave)}
-              canPublish={state.canPublish}
-              revisionUrl={state.revisionUrl}
-              actionsTarget={actionsTarget}
-              saveStatus={
-                busy
-                  ? labels.working
-                  : saver?.error
-                    ? labels.unsaved
-                    : saver?.busy
-                      ? labels.saving
-                      : saver?.dirty
-                        ? labels.unsaved
-                        : state
-                          ? labels.autosaved
-                          : labels.loading
-              }
-              labels={labels}
-              commit={(operation) => void act(operation)}
-              discard={() => {
-                if (window.confirm(labels.discardConfirm)) void act("discard");
-              }}
-            />
-          ) : (
-            <p role="status">{labels.loading}</p>
           )}
         </div>
       </aside>
