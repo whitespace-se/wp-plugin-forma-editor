@@ -165,7 +165,7 @@ export function PublishControls({
               <button
                 type="button"
                 className="button-link button-link-delete"
-                disabled={disabled}
+                disabled={discardDisabled}
                 onClick={discard}
               >
                 {labels.discard}
