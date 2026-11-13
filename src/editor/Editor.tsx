@@ -1,6 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { workflow, type WorkflowState } from "../wordpress/api";
 import { Autosave } from "./Autosave";
+import { observePostLock } from "../wordpress/locks";
+import { LockDialog } from "./LockDialog";
+import { PublishControls } from "./PublishControls";
 
 export interface EditorConfig {
   postId: number;
@@ -8,6 +11,7 @@ export interface EditorConfig {
   ajaxUrl: string;
   lockNonce: string;
   previewUrl: string;
+  returnUrl: string;
   labels: Record<string, string>;
 }
 
@@ -17,12 +21,15 @@ export function Editor({
   ajaxUrl,
   lockNonce,
   previewUrl,
+  returnUrl,
   labels,
 }: EditorConfig) {
   const [state, setState] = useState<WorkflowState>();
   const [restore, setRestore] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [lockError, setLockError] = useState(false);
+  const [lostLock, setLostLock] = useState(false);
   const [preview, setPreview] = useState({ url: previewUrl, version: 0 });
   const [, redraw] = useState(0);
   const queue = useRef<Autosave<WorkflowState>>();
@@ -30,6 +37,10 @@ export function Editor({
   const acting = useRef(false);
   const failedOperation = useRef<string>();
   const mounted = useRef(false);
+  const heartbeat = useRef<ReturnType<typeof observePostLock>>();
+  const lockGeneration = useRef(0);
+  const previewRequest = useRef(0);
+  const previewDirty = useRef(false);
 
   function adopt(next: WorkflowState, refresh = true) {
     current.current = next;
@@ -38,8 +49,11 @@ export function Editor({
       "#wp-admin-bar-view > a",
     );
     if (view) view.href = next.viewUrl;
-    if (refresh)
+    if (refresh) {
+      previewDirty.current = false;
+      previewRequest.current++;
       setPreview((old) => ({ url: next.previewUrl, version: old.version + 1 }));
+    }
   }
 
   function createQueue(value: string) {
@@ -48,13 +62,45 @@ export function Editor({
       value,
       (title) => workflow(workflowPath, "autosave", title),
       (next) => {
-        if (mounted.current) adopt(next);
+        if (mounted.current) {
+          // An autosave response started before takeover must not clear a
+          // newer Heartbeat lock-loss notification.
+          adopt(
+            current.current?.lockOwner
+              ? { ...next, lockOwner: current.current.lockOwner, lock: null }
+              : next,
+            false,
+          );
+          previewDirty.current = true;
+        }
         return next.autosave?.title ?? next.title;
       },
       () => {
         if (mounted.current) redraw((n) => n + 1);
       },
     );
+  }
+
+  async function refreshPreview() {
+    const request = ++previewRequest.current;
+    try {
+      await queue.current?.flush();
+      if (
+        mounted.current &&
+        !acting.current &&
+        request === previewRequest.current &&
+        previewDirty.current &&
+        current.current
+      ) {
+        previewDirty.current = false;
+        setPreview((old) => ({
+          url: current.current!.previewUrl,
+          version: old.version + 1,
+        }));
+      }
+    } catch {
+      /* The autosave status already shows the failure; keep the old preview. */
+    }
   }
 
   function release() {
@@ -76,15 +122,22 @@ export function Editor({
   async function act(operation: string) {
     if (acting.current) return;
     acting.current = true;
+    lockGeneration.current++;
+    previewRequest.current++;
     setBusy(true);
     setError("");
     failedOperation.current = undefined;
     try {
-      if (operation === "publish" || operation === "draft")
+      if (
+        operation === "publish" ||
+        operation === "draft" ||
+        operation === "discard"
+      )
         await queue.current?.flush();
       const next = await workflow(workflowPath, operation);
       if (!mounted.current) return;
       adopt(next);
+      if (!next.lockOwner) setLostLock(false);
       if (operation === "open" || operation === "takeover") {
         const pending = Boolean(queue.current?.dirty);
         setRestore(Boolean(next.autosave) && !pending);
@@ -104,6 +157,7 @@ export function Editor({
       );
     } finally {
       acting.current = false;
+      heartbeat.current?.refresh();
       if (mounted.current) setBusy(false);
     }
   }
@@ -111,33 +165,45 @@ export function Editor({
   useEffect(() => {
     mounted.current = true;
     void act("open");
-    let pulsing = false;
-    const pulse = async () => {
-      if (pulsing || acting.current || !current.current) return;
-      pulsing = true;
-      try {
-        const next = await workflow(workflowPath, "pulse");
-        if (!mounted.current) return;
-        const regained = current.current?.lockOwner && !next.lockOwner;
-        current.current = {
-          ...current.current!,
-          lock: next.lock,
-          lockOwner: next.lockOwner,
-        };
-        setState(current.current);
-        if (next.lockOwner && queue.current) queue.current.paused = true;
-        if (regained) void act("open");
-      } catch {
-        /* Saves recheck the lock if its refresh fails. */
-      } finally {
-        pulsing = false;
-      }
-    };
+    heartbeat.current = observePostLock(
+      postId,
+      () =>
+        !acting.current && current.current
+          ? { lock: current.current.lock, generation: lockGeneration.current }
+          : undefined,
+      (reply) => {
+        if (!mounted.current || !current.current) return;
+        setLockError(false);
+        if (reply.lock_error) {
+          if (current.current.lock) setLostLock(true);
+          current.current = {
+            ...current.current,
+            lock: null,
+            lockOwner: reply.lock_error.name,
+          };
+          if (queue.current) queue.current.paused = true;
+          previewRequest.current++;
+          setState(current.current);
+        } else if (reply.new_lock) {
+          const regained = Boolean(current.current.lockOwner);
+          current.current = {
+            ...current.current,
+            lock: reply.new_lock,
+            lockOwner: null,
+          };
+          setState(current.current);
+          if (regained) void act("open");
+        }
+      },
+      () => {
+        if (mounted.current) setLockError(true);
+      },
+    );
     const visible = () => {
-      if (document.visibilityState === "visible") void pulse();
+      if (document.visibilityState === "visible") heartbeat.current?.refresh();
     };
     const online = () => {
-      void pulse();
+      heartbeat.current?.refresh();
       if (!current.current?.lockOwner) queue.current?.retry();
     };
     const warn = (event: BeforeUnloadEvent) => {
@@ -153,6 +219,7 @@ export function Editor({
           : null;
       if (
         !anchor ||
+        anchor.hasAttribute("data-forma-leave-lock") ||
         anchor.target === "_blank" ||
         event.button !== 0 ||
         event.metaKey ||
@@ -184,20 +251,21 @@ export function Editor({
         setBusy(false);
       }
     };
-    const timer = setInterval(() => void pulse(), 15000);
     document.addEventListener("visibilitychange", visible);
     window.addEventListener("online", online);
     window.addEventListener("pageshow", visible);
+    window.addEventListener("focus", visible);
     window.addEventListener("pagehide", release);
     window.addEventListener("beforeunload", warn);
     document.addEventListener("click", navigate, true);
     return () => {
       mounted.current = false;
       queue.current?.dispose();
-      clearInterval(timer);
+      heartbeat.current?.dispose();
       document.removeEventListener("visibilitychange", visible);
       window.removeEventListener("online", online);
       window.removeEventListener("pageshow", visible);
+      window.removeEventListener("focus", visible);
       window.removeEventListener("pagehide", release);
       window.removeEventListener("beforeunload", warn);
       document.removeEventListener("click", navigate, true);
@@ -241,18 +309,44 @@ export function Editor({
                       : labels.loading}
           </span>
           {state?.canPublish && (
-            <button
-              className="button button-primary"
-              disabled={
-                disabled ||
-                (state.status === "publish" && !state.autosave && !saver?.dirty)
-              }
-              onClick={() => void act("publish")}
-            >
-              {state.status === "draft" ? labels.publish : labels.update}
-            </button>
+            <PublishControls
+              key={state.status}
+              status={state.status}
+              changed={Boolean(state.autosave || saver?.dirty)}
+              disabled={disabled}
+              hasAutosave={Boolean(state.autosave)}
+              labels={labels}
+              commit={(operation) => void act(operation)}
+              discard={() => {
+                if (window.confirm(labels.discardConfirm)) void act("discard");
+              }}
+            />
           )}
         </div>
+        {(restore || state?.autosave?.otherChanges) && !state?.lockOwner && (
+          <div className="notice notice-warning inline is-dismissible forma-editor__restore">
+            <p>
+              {labels.restoreNotice}{" "}
+              {restore && (
+                <button
+                  className="button-link"
+                  disabled={busy}
+                  onClick={() => void act("resume")}
+                >
+                  {labels.restoreLink}
+                </button>
+              )}
+            </p>
+            <button
+              className="notice-dismiss"
+              aria-label={labels.discard}
+              disabled={busy}
+              onClick={() => {
+                if (window.confirm(labels.discardConfirm)) void act("discard");
+              }}
+            />
+          </div>
+        )}
         <header className="forma-editor__panel-header">
           <p>{labels.context}</p>
           <h1 id="forma-heading">{labels.heading}</h1>
@@ -265,42 +359,9 @@ export function Editor({
                 : labels.publishedStatus}
             </p>
           )}
-          {state?.lockOwner && (
-            <div role="alert">
-              <p>
-                {labels.locked} {state.lockOwner}
-              </p>
-              <button
-                className="button"
-                disabled={busy}
-                onClick={() => void act("takeover")}
-              >
-                {labels.takeover}
-              </button>
-            </div>
-          )}
-          {(restore || state?.autosave?.otherChanges) && !state?.lockOwner && (
-            <div>
-              <p>{labels.restoreNotice}</p>
-              {restore && (
-                <button
-                  className="button"
-                  disabled={busy}
-                  onClick={() => void act("resume")}
-                >
-                  {labels.resume}
-                </button>
-              )}{" "}
-              <button
-                className="button"
-                disabled={busy}
-                onClick={() => {
-                  if (window.confirm(labels.discardConfirm))
-                    void act("discard");
-                }}
-              >
-                {labels.discard}
-              </button>
+          {lockError && (
+            <div className="notice notice-error inline">
+              <p role="alert">{labels.lockConnectionError}</p>
             </div>
           )}
           {state?.autosave?.otherChanges && (
@@ -312,7 +373,17 @@ export function Editor({
             type="text"
             disabled={disabled}
             value={saver?.value ?? ""}
-            onChange={(event) => saver?.edit(event.target.value)}
+            onChange={(event) => {
+              previewRequest.current++;
+              saver?.edit(event.target.value);
+            }}
+            onBlur={() => void refreshPreview()}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+                event.preventDefault();
+                void refreshPreview();
+              }
+            }}
           />
           {(error || saveError) && (
             <div role="alert">
@@ -336,19 +407,6 @@ export function Editor({
               </button>
             </div>
           )}
-          {state?.status === "publish" && state.canPublish && (
-            <p>
-              <button
-                className="button"
-                disabled={disabled}
-                onClick={() => {
-                  if (window.confirm(labels.draftConfirm)) void act("draft");
-                }}
-              >
-                {labels.draft}
-              </button>
-            </p>
-          )}
           {state?.revisionUrl && (
             <p>
               <a href={state.revisionUrl}>{labels.revisions}</a>
@@ -356,6 +414,16 @@ export function Editor({
           )}
         </div>
       </aside>
+      <LockDialog
+        owner={state?.lockOwner ?? null}
+        lost={lostLock}
+        busy={busy}
+        error={error}
+        viewUrl={state?.viewUrl ?? previewUrl}
+        returnUrl={returnUrl}
+        labels={labels}
+        takeover={() => void act("takeover")}
+      />
     </div>
   );
 }

@@ -1,11 +1,16 @@
 <?php
 // Run explicitly with wp eval-file on a disposable/local WordPress database.
 // Creates only temporary users and posts; finally removes all test records.
+if (!defined('WP_CLI') || !WP_CLI || !in_array(wp_get_environment_type(), ['local', 'development'], true)) {
+    throw new RuntimeException('Workflow tests require a local/development WP-CLI installation');
+}
 if (!class_exists(\Whitespace\FormaEditor\Workflow::class)) {
     require_once dirname(__DIR__) . '/source/Workflow.php';
 }
 require_once ABSPATH . 'wp-admin/includes/post.php';
 require_once ABSPATH . 'wp-admin/includes/user.php';
+require_once ABSPATH . 'wp-admin/includes/ms.php';
+require_once ABSPATH . 'wp-admin/includes/misc.php';
 // This suite performs multiple REST requests in one PHP process. Use core's
 // own test switch so DOING_AUTOSAVE does not leak into later publish requests.
 if (!defined('WP_RUN_CORE_TESTS')) define('WP_RUN_CORE_TESTS', true);
@@ -15,6 +20,23 @@ use Whitespace\FormaEditor\Workflow;
 $original_user = get_current_user_id();
 $users = [];
 $posts = [];
+$cleanup = static function () use (&$posts, &$users, $original_user): void {
+    wp_set_current_user($original_user);
+    foreach ($posts as $post) {
+        if (!is_int($post)) continue;
+        wp_delete_post($post, true);
+        if (get_post($post)) throw new RuntimeException('Test post cleanup failed: ' . $post);
+    }
+    $posts = [];
+    foreach ($users as $user) {
+        if (is_multisite()) wpmu_delete_user($user);
+        else wp_delete_user($user);
+        if (get_userdata($user)) throw new RuntimeException('Test user cleanup failed: ' . $user);
+    }
+    $users = [];
+};
+// Also clean up after a PHP fatal error; finally alone does not cover exit().
+register_shutdown_function($cleanup);
 $GLOBALS['forma_workflow_checks'] = 0;
 function check_workflow($condition, string $message): void {
     if (!$condition) throw new RuntimeException($message);
@@ -81,8 +103,12 @@ try {
     check_workflow(!call_workflow($draft, 'takeover')['lockOwner'], 'Explicit takeover');
     wp_set_current_user($users[0]);
     check_workflow((bool) wp_check_post_lock($draft), 'Classic sees Forma lock');
+    $heartbeat = wp_refresh_post_lock([], ['wp-refresh-post-lock' => ['post_id' => $draft]], 'admin_page_forma-editor');
+    check_workflow($heartbeat['wp-refresh-post-lock']['lock_error']['name'] === get_userdata($users[1])->display_name, 'Native Heartbeat reports takeover to old owner');
     check_workflow(is_wp_error(call_workflow($draft, 'publish')), 'Old owner cannot publish');
     wp_set_post_lock($draft);
+    $heartbeat = wp_refresh_post_lock([], ['wp-refresh-post-lock' => ['post_id' => $draft]], 'admin_page_forma-editor');
+    check_workflow(isset($heartbeat['wp-refresh-post-lock']['new_lock']), 'Native Heartbeat refreshes current owner');
     wp_set_current_user($users[1]);
     check_workflow((bool) call_workflow($draft, 'pulse')['lockOwner'], 'Forma detects classic takeover');
     wp_set_current_user($users[0]);
@@ -97,7 +123,6 @@ try {
     check_workflow(is_wp_error(call_workflow($draft, 'open')), 'Anonymous cannot edit');
     echo $GLOBALS['forma_workflow_checks'] . " workflow integration checks passed.\n";
 } finally {
-    wp_set_current_user($original_user);
-    foreach ($posts as $post) if (is_int($post)) wp_delete_post($post, true);
-    foreach ($users as $user) wp_delete_user($user);
+    $cleanup();
+    echo "Temporary posts and network users verified absent.\n";
 }

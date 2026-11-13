@@ -70,10 +70,136 @@
   font-weight: 600;
 }
 
-.forma-editor__panel input {
+.forma-editor__panel input[type="text"] {
   width: 100%;
   margin: 0;
   background: #fff;
+}
+
+/* Customizer split publish button, using core buttons and user color scheme. */
+.forma-editor__publish-group {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.forma-editor__publish-group .forma-editor__publish {
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+}
+
+.forma-editor__publish-group .forma-editor__publish-settings {
+  anchor-name: --forma-publish;
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+  margin-inline-start: -1px;
+  padding-inline: 6px;
+}
+
+.forma-editor__publish-settings .dashicons {
+  vertical-align: middle;
+}
+
+.forma-editor__publish-options {
+  position: fixed;
+  inset: calc(var(--wp-admin--admin-bar--height, 32px) + 52px) 12px auto auto;
+  margin: 0;
+  padding: 0;
+  width: 296px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 100px);
+  overflow: auto;
+  box-sizing: border-box;
+  color: #50575e;
+  background: #f0f0f1;
+  border: 1px solid #dcdcde;
+  box-shadow: 0 3px 6px rgb(0 0 0 / 30%);
+}
+
+@supports (top: anchor(bottom)) {
+  .forma-editor__publish-options {
+    position-anchor: --forma-publish;
+    top: calc(anchor(bottom) + 8px);
+    right: anchor(right);
+  }
+}
+
+/* Older browsers keep all choices usable inline instead of hiding them. */
+@supports not selector(:popover-open) {
+  .forma-editor__publish-settings {
+    display: none;
+  }
+  .forma-editor__actions {
+    flex-wrap: wrap;
+  }
+  .forma-editor__publish-options {
+    position: static;
+    flex-basis: 100%;
+  }
+}
+
+.forma-editor__publish-options fieldset {
+  padding: 0;
+}
+.forma-editor__publish-options legend {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  border-bottom: 1px solid #dcdcde;
+}
+.forma-editor__publish-options label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 12px;
+  background: white;
+  border-bottom: 1px solid #dcdcde;
+}
+.forma-editor__publish-options input[type="radio"] {
+  margin: 0;
+}
+.forma-editor__discard {
+  padding: 16px 12px;
+}
+.forma-editor__discard .dashicons {
+  vertical-align: middle;
+}
+
+.forma-editor__restore.notice {
+  margin: 0;
+  border-radius: 0;
+}
+.forma-editor__restore .button-link {
+  text-align: start;
+  text-decoration: underline;
+  font: inherit;
+}
+
+/* Core edit.css supplies notification-dialog and post-locked-message styling.
+   Native dialog adds modality/focus handling without the classic editor JS. */
+.forma-editor__lock-dialog {
+  inset: 30% auto auto 50%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  width: 450px;
+  max-width: calc(100vw - 40px);
+  max-height: 70%;
+  transform: translateX(-50%);
+  color: #3c434a;
+}
+.forma-editor__lock-dialog::backdrop {
+  background: rgb(0 0 0 / 70%);
+}
+.forma-editor__lock-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+#post-lock-dialog .post-locked-message a.button {
+  margin: 0;
 }
 
 .forma-editor__panel h1 {
