@@ -277,6 +277,9 @@ export function Editor({
     message?: string;
     data?: { status?: number };
   } | null;
+  const [actionsTarget, setActionsTarget] = useState<HTMLDivElement | null>(
+    null,
+  );
   const authError =
     saveError?.data?.status === 401 || saveError?.data?.status === 403;
   const disabled =
@@ -294,6 +297,7 @@ export function Editor({
         title={labels.preview}
       />
       <aside className="forma-editor__panel" aria-labelledby="forma-heading">
+        <div className="forma-editor__actions" ref={setActionsTarget} />
         {(restore || state?.autosave?.otherChanges) && !state?.lockOwner && (
           <div className="notice notice-warning inline is-dismissible forma-editor__restore">
             <p>
@@ -380,6 +384,7 @@ export function Editor({
               hasAutosave={Boolean(state.autosave)}
               canPublish={state.canPublish}
               revisionUrl={state.revisionUrl}
+              actionsTarget={actionsTarget}
               saveStatus={
                 busy
                   ? labels.working

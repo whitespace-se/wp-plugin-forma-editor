@@ -67,33 +67,47 @@
   background: #fff;
 }
 
-.forma-editor__publish-box.postbox {
-  margin: 16px 0 0;
-  min-width: 0;
+.forma-editor__actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  min-height: 30px;
+  border-bottom: 1px solid #dcdcde;
 }
 
-.forma-editor__publish-box .postbox-header .hndle {
+.forma-editor__publish-section {
+  margin: 16px -12px -12px;
+  border-block: 1px solid #dcdcde;
+}
+
+.forma-editor__section-header {
+  padding: 10px 12px;
+  border-bottom: 1px solid #dcdcde;
+}
+
+.forma-editor__section-header h2 {
   margin: 0;
-  padding: 8px 12px;
+  color: inherit;
   font-size: 14px;
-  cursor: default;
+  line-height: 1.75;
 }
 
-.forma-editor__publish-box .inside {
-  margin: 0;
-  padding: 0;
+.forma-editor__section-content {
+  padding-block: 4px;
 }
 
-.forma-editor__publish-box .misc-pub-section {
+.forma-editor__publish-section .misc-pub-section {
   padding: 10px 12px;
 }
 
-.forma-editor__publish-box .dashicons {
+.forma-editor__publish-section .dashicons {
   color: #8c8f94;
   vertical-align: middle;
 }
 
-.forma-editor__publish-box .button-link {
+.forma-editor__publish-section .button-link {
   text-decoration: underline;
 }
 
@@ -103,14 +117,6 @@
   flex-wrap: wrap;
   gap: 6px;
   margin-top: 8px;
-}
-
-.forma-editor__publish-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 8px;
 }
 
 .forma-editor__restore.notice {
