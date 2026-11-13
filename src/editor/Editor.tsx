@@ -75,7 +75,6 @@ export function Editor({
           );
           previewDirty.current = true;
         }
-        return next.autosave?.title ?? next.title;
       },
       () => {
         if (mounted.current) redraw((n) => n + 1);

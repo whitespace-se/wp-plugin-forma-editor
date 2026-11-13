@@ -166,18 +166,67 @@ test("a lost response followed by a revert still writes the intended title", asy
   }
 });
 
-test("server-normalized titles replace only the input that was sent", async () => {
+test("normalized responses preserve trailing spaces without repeated saves", async () => {
+  const calls = [];
+  let serverTitle;
   const queue = new Autosave(
     "old",
-    async () => "normalized",
-    (value) => value,
+    async (value) => {
+      calls.push(value);
+      return value.trim();
+    },
+    (value) => {
+      serverTitle = value;
+    },
     () => {},
     1,
   );
   try {
-    queue.edit("raw");
+    queue.edit("Title ");
     await queue.flush();
-    assert.equal(queue.value, "normalized");
+    assert.equal(queue.value, "Title ");
+    assert.equal(queue.saved, "Title ");
+    assert.equal(serverTitle, "Title");
+    assert.equal(queue.dirty, false);
+    await queue.flush();
+    await wait(15);
+    assert.deepEqual(calls, ["Title "]);
+    queue.edit(queue.value + "word");
+    await queue.flush();
+    assert.equal(queue.value, "Title word");
+    assert.equal(serverTitle, "Title word");
+  } finally {
+    queue.dispose();
+  }
+});
+
+test("normalized response cannot overwrite newer input while saving", async () => {
+  const calls = [];
+  let resolve;
+  const queue = new Autosave(
+    "old",
+    (value) => {
+      calls.push(value);
+      return calls.length === 1
+        ? new Promise((done) => {
+            resolve = done;
+          })
+        : Promise.resolve(value.trim());
+    },
+    () => {},
+    () => {},
+    1,
+  );
+  try {
+    queue.edit("Title ");
+    await until(() => calls.length === 1);
+    queue.edit("Title word ");
+    const flushed = queue.flush();
+    resolve("Title");
+    await flushed;
+    assert.deepEqual(calls, ["Title ", "Title word "]);
+    assert.equal(queue.value, "Title word ");
+    assert.equal(queue.saved, "Title word ");
     assert.equal(queue.dirty, false);
   } finally {
     queue.dispose();

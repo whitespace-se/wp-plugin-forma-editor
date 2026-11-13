@@ -12,7 +12,7 @@ export class Autosave<T> {
   constructor(
     initial: string,
     private write: (value: string) => Promise<T>,
-    private accept: (result: T, value: string) => string,
+    private accept: (result: T, value: string) => void,
     private changed: () => void,
     private interval = 2000,
     private retryDelay = 5000,
@@ -62,8 +62,11 @@ export class Autosave<T> {
     this.error = null;
     this.flight = this.write(value)
       .then((result) => {
-        this.saved = this.accept(result, value);
-        if (this.value === value) this.value = this.saved;
+        this.accept(result, value);
+        // Acknowledge the submitted input, not the normalized server value.
+        // Replacing input here removes spaces while typing; comparing against
+        // the normalized value instead would repeatedly save the same input.
+        this.saved = value;
       })
       .catch((error: unknown) => {
         this.error = error;
