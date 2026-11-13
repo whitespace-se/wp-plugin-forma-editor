@@ -76,6 +76,8 @@ try {
     check_workflow(str_contains($state['previewUrl'], 'preview_nonce='), 'Preview renders native autosave');
     check_workflow(_set_preview(clone get_post($published))->post_title === 'Working title', 'Core preview overlays own autosave');
     check_workflow(call_workflow($published, 'open')['autosave']['title'] === 'Working title', 'Reopen discovers autosave');
+    check_workflow(str_contains(call_workflow($published, 'open')['previewUrl'], 'preview_nonce='), 'Reopen previews own supported autosave automatically');
+    check_workflow(get_post($published)->post_title === 'Original', 'Automatic resume does not publish');
     call_workflow($published, 'autosave', 'Original');
     check_workflow(!wp_get_post_autosave($published, $users[0]), 'Reverting title removes stale autosave');
     call_workflow($published, 'autosave', 'Updated title');
@@ -93,6 +95,7 @@ try {
     wp_create_post_autosave(['post_ID' => $draft, 'post_type' => 'post', 'post_title' => 'Classic title', 'post_content' => 'Classic content', 'post_excerpt' => 'Keep excerpt']);
     $state = call_workflow($draft, 'resume');
     check_workflow($state['autosave']['otherChanges'], 'Detect classic content work');
+    check_workflow(!str_contains(call_workflow($draft, 'open')['previewUrl'], 'preview_nonce='), 'Unsupported classic changes are not automatically previewed');
     check_workflow(is_wp_error(call_workflow($draft, 'autosave', 'Do not overwrite')), 'Do not overwrite classic content');
     check_workflow(is_wp_error(call_workflow($draft, 'publish')), 'Do not silently publish classic content');
     call_workflow($draft, 'discard');

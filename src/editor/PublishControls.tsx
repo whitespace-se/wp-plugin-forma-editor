@@ -5,6 +5,7 @@ export function PublishControls({
   status,
   changed,
   disabled,
+  discardDisabled,
   hasAutosave,
   canPublish,
   revisionUrl,
@@ -17,6 +18,7 @@ export function PublishControls({
   status: "draft" | "publish";
   changed: boolean;
   disabled: boolean;
+  discardDisabled: boolean;
   hasAutosave: boolean;
   canPublish: boolean;
   revisionUrl?: string | null;

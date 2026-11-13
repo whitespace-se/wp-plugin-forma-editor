@@ -98,7 +98,11 @@ final class Workflow
                 wp_delete_post_revision($autosave->ID);
             }
         }
-        return self::state(get_post($post->ID), in_array($operation, ['resume', 'autosave'], true));
+        // Opening resumes only autosaves Forma can edit without losing fields
+        // from the classic editor. Other users' locks return above.
+        $resume = in_array($operation, ['open', 'takeover'], true)
+            && $autosave && !self::other_changes($post, $autosave);
+        return self::state(get_post($post->ID), $resume || in_array($operation, ['resume', 'autosave'], true));
     }
 
     private static function other_changes(\WP_Post $post, \WP_Post $autosave): bool

@@ -97,6 +97,7 @@ final class Plugin
         wp_enqueue_style('forma-editor');
         wp_add_inline_script('forma-editor', 'FormaEditor.start(' . wp_json_encode([
             'postId' => $post->ID,
+            'classicUrl' => self::classic_url($post),
             'returnUrl' => admin_url('edit.php?post_type=' . $post->post_type),
             'workflowPath' => '/forma/v1/posts/' . $post->ID . '/workflow',
             'ajaxUrl' => admin_url('admin-ajax.php'),
@@ -118,8 +119,9 @@ final class Plugin
                 'publishedStatus' => __('Publicerat', 'forma-editor'),
                 'resume' => __('Återuppta', 'forma-editor'),
                 'discard' => __('Kasta autosparningen', 'forma-editor'),
-                'restoreNotice' => __('Det finns en nyare och automatiskt sparad version av dina ändringar än den som förhandsgranskas.', 'forma-editor'),
-                'restoreLink' => __('Återställ den autosparade versionen', 'forma-editor'),
+                'resumedNotice' => __('Din autosparade version har återupptagits.', 'forma-editor'),
+                'dismissNotice' => __('Dismiss this notice.'),
+                'openClassic' => __('Öppna klassiska editorn', 'forma-editor'),
                 'status' => __('Status:'),
                 'edit' => __('Edit'),
                 'editStatus' => __('Edit status'),
@@ -131,7 +133,7 @@ final class Plugin
                 'lockLost' => __('%s has taken over and is currently editing.'),
                 'lockLocalChanges' => __('Din lokala inmatning finns kvar. Ta över för att fortsätta spara den.', 'forma-editor'),
                 'lockConnectionError' => __('Anslutningen för redigeringslåset har avbrutits. Försöker ansluta igen.', 'forma-editor'),
-                'otherChanges' => __('Autosparningen innehåller även innehåll eller andra fält. Fortsätt i klassiska editorn eller kasta autosparningen.', 'forma-editor'),
+                'otherChanges' => __('Redigeringen är låst eftersom din autosparade version innehåller ändringar som Forma ännu inte kan hantera. Öppna klassiska editorn för att fortsätta med dom, eller kasta autosparningen för att utgå från den sparade versionen.', 'forma-editor'),
                 'discardConfirm' => __('Kasta hela din autosparning för denna post?', 'forma-editor'),
                 'draftConfirm' => __('Ändra till utkast? Sidan blir inte längre publik.', 'forma-editor'),
                 'takeover' => __('Ta över redigeringen', 'forma-editor'),

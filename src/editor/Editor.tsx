@@ -12,6 +12,7 @@ export interface EditorConfig {
   lockNonce: string;
   previewUrl: string;
   returnUrl: string;
+  classicUrl: string;
   labels: Record<string, string>;
 }
 
@@ -22,10 +23,11 @@ export function Editor({
   lockNonce,
   previewUrl,
   returnUrl,
+  classicUrl,
   labels,
 }: EditorConfig) {
   const [state, setState] = useState<WorkflowState>();
-  const [restore, setRestore] = useState(false);
+  const [resumed, setResumed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [lockError, setLockError] = useState(false);
@@ -140,12 +142,15 @@ export function Editor({
       if (!next.lockOwner) setLostLock(false);
       if (operation === "open" || operation === "takeover") {
         const pending = Boolean(queue.current?.dirty);
-        setRestore(Boolean(next.autosave) && !pending);
-        if (!queue.current?.dirty) createQueue(next.title);
+        const resume = Boolean(
+          next.autosave && !next.autosave.otherChanges && !next.lockOwner,
+        );
+        setResumed(resume && !pending);
+        if (!pending) createQueue(resume ? next.autosave!.title : next.title);
         else if (!next.lockOwner && !next.autosave?.otherChanges)
-          queue.current.retry();
+          queue.current?.retry();
       } else {
-        setRestore(false);
+        setResumed(false);
         createQueue(next.autosave?.title ?? next.title);
       }
       if (next.lockOwner && queue.current) queue.current.paused = true;
@@ -286,7 +291,6 @@ export function Editor({
     busy ||
     !state ||
     Boolean(state.lockOwner) ||
-    restore ||
     Boolean(state.autosave?.otherChanges);
   return (
     <div className="forma-editor__workspace">
@@ -298,28 +302,23 @@ export function Editor({
       />
       <aside className="forma-editor__panel" aria-labelledby="forma-heading">
         <div className="forma-editor__actions" ref={setActionsTarget} />
-        {(restore || state?.autosave?.otherChanges) && !state?.lockOwner && (
-          <div className="notice notice-warning inline is-dismissible forma-editor__restore">
-            <p>
-              {labels.restoreNotice}{" "}
-              {restore && (
-                <button
-                  className="button-link"
-                  disabled={busy}
-                  onClick={() => void act("resume")}
-                >
-                  {labels.restoreLink}
-                </button>
-              )}
-            </p>
+        {resumed && !state?.autosave?.otherChanges && !state?.lockOwner && (
+          <div className="notice notice-info inline is-dismissible forma-editor__restore">
+            <p>{labels.resumedNotice}</p>
             <button
+              type="button"
               className="notice-dismiss"
-              aria-label={labels.discard}
-              disabled={busy}
-              onClick={() => {
-                if (window.confirm(labels.discardConfirm)) void act("discard");
-              }}
+              aria-label={labels.dismissNotice}
+              onClick={() => setResumed(false)}
             />
+          </div>
+        )}
+        {state?.autosave?.otherChanges && !state.lockOwner && (
+          <div className="notice notice-warning inline forma-editor__restore">
+            <p id="forma-autosave-blocked">{labels.otherChanges}</p>
+            <p>
+              <a href={classicUrl}>{labels.openClassic}</a>
+            </p>
           </div>
         )}
         <header className="forma-editor__panel-header">
@@ -332,6 +331,7 @@ export function Editor({
             status={state.status}
             changed={Boolean(state.autosave || saver?.dirty)}
             disabled={disabled}
+            discardDisabled={busy || Boolean(state.lockOwner)}
             hasAutosave={Boolean(state.autosave)}
             canPublish={state.canPublish}
             revisionUrl={state.revisionUrl}
@@ -364,12 +364,14 @@ export function Editor({
               <p role="alert">{labels.lockConnectionError}</p>
             </div>
           )}
-          {state?.autosave?.otherChanges && (
-            <p role="alert">{labels.otherChanges}</p>
-          )}
           <label htmlFor="forma-title">{labels.title}</label>
           <input
             id="forma-title"
+            aria-describedby={
+              state?.autosave?.otherChanges
+                ? "forma-autosave-blocked"
+                : undefined
+            }
             type="text"
             disabled={disabled}
             value={saver?.value ?? ""}
