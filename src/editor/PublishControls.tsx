@@ -54,11 +54,14 @@ export function PublishControls({
       </div>
       <div
         id="forma-publish-options"
-        className="forma-editor__publish-options"
+        className="postbox forma-editor__publish-options"
         {...{ popover: "auto" }}
       >
-        <fieldset disabled={disabled}>
-          <legend>{labels.action}</legend>
+        <div className="postbox-header">
+          <h2 className="hndle">{labels.action}</h2>
+        </div>
+        <fieldset className="inside" disabled={disabled}>
+          <legend className="screen-reader-text">{labels.action}</legend>
           <label>
             <input
               type="radio"

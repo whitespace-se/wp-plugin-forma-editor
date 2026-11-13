@@ -80,43 +80,56 @@
 .forma-editor__publish-group {
   display: inline-flex;
   flex-shrink: 0;
+  gap: 0;
+  align-items: stretch;
 }
 
-.forma-editor__publish-group .forma-editor__publish {
+.wp-core-ui .forma-editor__publish-group .button {
+  /* Municipio decorates individual buttons; a split control needs one seam. */
+  filter: none;
+  margin-block: 0;
+}
+
+.wp-core-ui .forma-editor__publish-group .forma-editor__publish {
   border-start-end-radius: 0;
   border-end-end-radius: 0;
 }
 
-.forma-editor__publish-group .forma-editor__publish-settings {
+.wp-core-ui .forma-editor__publish-group .forma-editor__publish-settings {
   anchor-name: --forma-publish;
   border-start-start-radius: 0;
   border-end-start-radius: 0;
   margin-inline-start: -1px;
-  padding-inline: 6px;
+  padding: 0;
+  width: 30px;
+  min-width: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .forma-editor__publish-settings .dashicons {
-  vertical-align: middle;
+  width: 14px;
+  height: 14px;
+  font-size: 14px;
 }
 
-.forma-editor__publish-options {
+.forma-editor__publish-options.postbox {
   position: fixed;
   inset: calc(var(--wp-admin--admin-bar--height, 32px) + 52px) 12px auto auto;
   margin: 0;
   padding: 0;
   width: 296px;
+  min-width: 0;
   max-width: calc(100vw - 24px);
   max-height: calc(100dvh - 100px);
   overflow: auto;
   box-sizing: border-box;
-  color: #50575e;
-  background: #f0f0f1;
-  border: 1px solid #dcdcde;
-  box-shadow: 0 3px 6px rgb(0 0 0 / 30%);
+  /* Let core and the site's admin theme supply the actual metabox surface. */
 }
 
 @supports (top: anchor(bottom)) {
-  .forma-editor__publish-options {
+  .forma-editor__publish-options.postbox {
     position-anchor: --forma-publish;
     top: calc(anchor(bottom) + 8px);
     right: anchor(right);
@@ -131,37 +144,35 @@
   .forma-editor__actions {
     flex-wrap: wrap;
   }
-  .forma-editor__publish-options {
+  .forma-editor__publish-options.postbox {
     position: static;
     flex-basis: 100%;
   }
 }
 
-.forma-editor__publish-options fieldset {
-  padding: 0;
+.forma-editor__publish-options fieldset.inside {
+  border: 0;
 }
-.forma-editor__publish-options legend {
-  box-sizing: border-box;
-  width: 100%;
-  padding: 12px;
-  font-size: 14px;
-  font-weight: 600;
-  border-bottom: 1px solid #dcdcde;
+.forma-editor__publish-options .postbox-header .hndle {
+  margin: 0;
+  padding: 8px 12px;
+  cursor: default;
 }
 .forma-editor__publish-options label {
   display: flex;
   align-items: center;
   gap: 8px;
   margin: 0;
-  padding: 12px;
-  background: white;
-  border-bottom: 1px solid #dcdcde;
+  padding: 6px 0;
+  font-weight: 400;
 }
 .forma-editor__publish-options input[type="radio"] {
   margin: 0;
 }
 .forma-editor__discard {
-  padding: 16px 12px;
+  padding: 12px;
+  border-top: 1px solid #dcdcde;
+  background: #f6f7f7;
 }
 .forma-editor__discard .dashicons {
   vertical-align: middle;
