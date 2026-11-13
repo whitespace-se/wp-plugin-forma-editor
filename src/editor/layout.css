@@ -36,15 +36,6 @@
 }
 
 /* Match WordPress customize-controls.css without loading its global layout. */
-.forma-editor__actions {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  border-bottom: 1px solid #dcdcde;
-}
-
 .forma-editor__panel-header {
   padding: 10px 10px 12px 14px;
   background: #fff;
@@ -76,106 +67,50 @@
   background: #fff;
 }
 
-/* Customizer split publish button, using core buttons and user color scheme. */
-.forma-editor__publish-group {
-  display: inline-flex;
-  flex-shrink: 0;
-  gap: 0;
-  align-items: stretch;
-}
-
-.wp-core-ui .forma-editor__publish-group .button {
-  /* Municipio decorates individual buttons; a split control needs one seam. */
-  filter: none;
-  margin-block: 0;
-}
-
-.wp-core-ui .forma-editor__publish-group .forma-editor__publish {
-  border-start-end-radius: 0;
-  border-end-end-radius: 0;
-}
-
-.wp-core-ui .forma-editor__publish-group .forma-editor__publish-settings {
-  anchor-name: --forma-publish;
-  border-start-start-radius: 0;
-  border-end-start-radius: 0;
-  margin-inline-start: -1px;
-  padding: 0;
-  width: 30px;
-  min-width: 30px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.forma-editor__publish-settings .dashicons {
-  width: 14px;
-  height: 14px;
-  font-size: 14px;
-}
-
-.forma-editor__publish-options.postbox {
-  position: fixed;
-  inset: calc(var(--wp-admin--admin-bar--height, 32px) + 52px) 12px auto auto;
-  margin: 0;
-  padding: 0;
-  width: 296px;
+.forma-editor__publish-box.postbox {
+  margin: 16px 0 0;
   min-width: 0;
-  max-width: calc(100vw - 24px);
-  max-height: calc(100dvh - 100px);
-  overflow: auto;
-  box-sizing: border-box;
-  /* Let core and the site's admin theme supply the actual metabox surface. */
 }
 
-@supports (top: anchor(bottom)) {
-  .forma-editor__publish-options.postbox {
-    position-anchor: --forma-publish;
-    top: calc(anchor(bottom) + 8px);
-    right: anchor(right);
-  }
-}
-
-/* Older browsers keep all choices usable inline instead of hiding them. */
-@supports not selector(:popover-open) {
-  .forma-editor__publish-settings {
-    display: none;
-  }
-  .forma-editor__actions {
-    flex-wrap: wrap;
-  }
-  .forma-editor__publish-options.postbox {
-    position: static;
-    flex-basis: 100%;
-  }
-}
-
-.forma-editor__publish-options fieldset.inside {
-  border: 0;
-}
-.forma-editor__publish-options .postbox-header .hndle {
+.forma-editor__publish-box .postbox-header .hndle {
   margin: 0;
   padding: 8px 12px;
+  font-size: 14px;
   cursor: default;
 }
-.forma-editor__publish-options label {
+
+.forma-editor__publish-box .inside {
+  margin: 0;
+  padding: 0;
+}
+
+.forma-editor__publish-box .misc-pub-section {
+  padding: 10px 12px;
+}
+
+.forma-editor__publish-box .dashicons {
+  color: #8c8f94;
+  vertical-align: middle;
+}
+
+.forma-editor__publish-box .button-link {
+  text-decoration: underline;
+}
+
+.forma-editor__status-select {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.forma-editor__publish-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
   gap: 8px;
-  margin: 0;
-  padding: 6px 0;
-  font-weight: 400;
-}
-.forma-editor__publish-options input[type="radio"] {
-  margin: 0;
-}
-.forma-editor__discard {
-  padding: 12px;
-  border-top: 1px solid #dcdcde;
-  background: #f6f7f7;
-}
-.forma-editor__discard .dashicons {
-  vertical-align: middle;
 }
 
 .forma-editor__restore.notice {
