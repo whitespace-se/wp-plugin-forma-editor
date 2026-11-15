@@ -16,6 +16,7 @@ final class Workflow
             'args' => [
                 'operation' => ['required' => true, 'enum' => ['open', 'pulse', 'takeover', 'resume', 'discard', 'autosave', 'publish', 'draft']],
                 'title' => ['type' => 'string'],
+                'content' => ['type' => 'string'],
             ],
         ]);
     }
@@ -53,8 +54,8 @@ final class Workflow
                 return new \WP_Error('forma_other_changes', __('Autosparningen innehåller fler ändringar. Fortsätt i klassiska editorn eller kasta autosparningen.', 'forma-editor'), ['status' => 409]);
             }
             // Core returns an existing autosave unchanged when the new values
-            // equal the parent. Remove it explicitly when undoing the title.
-            if ($autosave && $request['title'] === $post->post_title) {
+            // equal the parent. Remove it explicitly when undoing all supported fields.
+            if ($autosave && $request['title'] === $post->post_title && ($request['content'] ?? $autosave->post_content) === $post->post_content) {
                 wp_delete_post_revision($autosave->ID);
                 return self::state($post, false);
             }
@@ -64,7 +65,7 @@ final class Workflow
             $core = new \WP_REST_Request('POST', rest_get_route_for_post($post) . '/autosaves');
             $core->set_body_params([
                 'title' => $request['title'],
-                'content' => $source->post_content,
+                'content' => $request['content'] ?? $source->post_content,
                 'excerpt' => $source->post_excerpt,
             ]);
             $result = rest_do_request($core);
@@ -80,14 +81,14 @@ final class Workflow
             if (!current_user_can($type->cap->publish_posts)) {
                 return new \WP_Error('forma_cannot_publish', __('Du saknar publiceringsbehörighet.', 'forma-editor'), ['status' => 403]);
             }
-            // A title-only editor must not silently publish or destroy unrelated
-            // content which was autosaved in another editor.
+            // Do not silently publish excerpt or metadata changes from another editor.
             if ($autosave && self::other_changes($post, $autosave)) {
                 return new \WP_Error('forma_other_changes', __('Autosparningen innehåller fler ändringar. Publicera eller återställ dom i klassiska editorn.', 'forma-editor'), ['status' => 409]);
             }
             $core = new \WP_REST_Request('POST', rest_get_route_for_post($post));
             $core->set_body_params([
                 'title' => $autosave ? $autosave->post_title : $post->post_title,
+                'content' => $autosave ? $autosave->post_content : $post->post_content,
                 'status' => $operation === 'publish' ? 'publish' : 'draft',
             ]);
             $result = rest_do_request($core);
@@ -107,7 +108,7 @@ final class Workflow
 
     private static function other_changes(\WP_Post $post, \WP_Post $autosave): bool
     {
-        if ($post->post_content !== $autosave->post_content || $post->post_excerpt !== $autosave->post_excerpt) {
+        if ($post->post_excerpt !== $autosave->post_excerpt) {
             return true;
         }
         foreach (wp_post_revision_meta_keys($post->post_type) as $key) {
@@ -121,7 +122,7 @@ final class Workflow
     private static function state(\WP_Post $post, bool $preview_autosave): array
     {
         $autosave = wp_get_post_autosave($post->ID, get_current_user_id());
-        $different = $autosave && ($post->post_title !== $autosave->post_title || self::other_changes($post, $autosave));
+        $different = $autosave && ($post->post_title !== $autosave->post_title || $post->post_content !== $autosave->post_content || self::other_changes($post, $autosave));
         $owner = wp_check_post_lock($post->ID);
         $preview_args = [
             'forma-preview' => $post->ID,
@@ -142,8 +143,9 @@ final class Workflow
         }
         return [
             'title' => $post->post_title,
+            'content' => $post->post_content,
             'status' => $post->post_status,
-            'autosave' => $different ? ['title' => $autosave->post_title, 'otherChanges' => self::other_changes($post, $autosave)] : null,
+            'autosave' => $different ? ['title' => $autosave->post_title, 'content' => $autosave->post_content, 'otherChanges' => self::other_changes($post, $autosave)] : null,
             'canPublish' => current_user_can(get_post_type_object($post->post_type)->cap->publish_posts),
             'lockOwner' => $owner ? get_userdata($owner)->display_name : null,
             'lock' => $owner ? null : get_post_meta($post->ID, '_edit_lock', true),

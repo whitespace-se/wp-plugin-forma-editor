@@ -3,10 +3,12 @@ import { workflow, type WorkflowState } from "../wordpress/api";
 import { Autosave } from "./Autosave";
 import { observePostLock } from "../wordpress/locks";
 import { LockDialog } from "./LockDialog";
+import { ContentEditor } from "./ContentEditor";
 import { PublishControls } from "./PublishControls";
 
 export interface EditorConfig {
   postId: number;
+  editorMarkup: string;
   workflowPath: string;
   ajaxUrl: string;
   lockNonce: string;
@@ -18,6 +20,7 @@ export interface EditorConfig {
 
 export function Editor({
   postId,
+  editorMarkup,
   workflowPath,
   ajaxUrl,
   lockNonce,
@@ -26,6 +29,8 @@ export function Editor({
   classicUrl,
   labels,
 }: EditorConfig) {
+  const [panelWidth, setPanelWidth] = useState(420);
+  const [contentVersion, setContentVersion] = useState(0);
   const [state, setState] = useState<WorkflowState>();
   const [resumed, setResumed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -58,11 +63,15 @@ export function Editor({
     }
   }
 
-  function createQueue(value: string) {
+  function createQueue(value: { title: string; content: string }) {
+    setContentVersion((n) => n + 1);
     queue.current?.dispose();
     queue.current = new Autosave(
-      value,
-      (title) => workflow(workflowPath, "autosave", title),
+      JSON.stringify({ title: value.title, content: value.content }),
+      (raw) => {
+        const input = JSON.parse(raw);
+        return workflow(workflowPath, "autosave", input.title, input.content);
+      },
       (next) => {
         if (mounted.current) {
           // An autosave response started before takeover must not clear a
@@ -145,12 +154,12 @@ export function Editor({
           next.autosave && !next.autosave.otherChanges && !next.lockOwner,
         );
         setResumed(resume && !pending);
-        if (!pending) createQueue(resume ? next.autosave!.title : next.title);
+        if (!pending) createQueue(resume ? next.autosave! : next);
         else if (!next.lockOwner && !next.autosave?.otherChanges)
           queue.current?.retry();
       } else {
         setResumed(false);
-        createQueue(next.autosave?.title ?? next.title);
+        createQueue(next.autosave ?? next);
       }
       if (next.lockOwner && queue.current) queue.current.paused = true;
       else if (!next.autosave && queue.current?.dirty) queue.current.retry();
@@ -223,6 +232,9 @@ export function Editor({
           : null;
       if (
         !anchor ||
+        anchor.closest(
+          ".forma-editor__content, .mce-container, .media-modal, #wp-link-wrap",
+        ) ||
         anchor.hasAttribute("data-forma-leave-lock") ||
         anchor.target === "_blank" ||
         event.button !== 0 ||
@@ -277,6 +289,22 @@ export function Editor({
   }, []);
 
   const saver = queue.current;
+  const input: { title: string; content: string } = saver
+    ? JSON.parse(saver.value)
+    : { title: "", content: "" };
+  const editField = (field: "title" | "content", value: string) => {
+    if (
+      !queue.current ||
+      acting.current ||
+      current.current?.lockOwner ||
+      current.current?.autosave?.otherChanges
+    )
+      return;
+    previewRequest.current++;
+    queue.current.edit(
+      JSON.stringify({ ...JSON.parse(queue.current.value), [field]: value }),
+    );
+  };
   const saveError = saver?.error as {
     message?: string;
     data?: { status?: number };
@@ -292,7 +320,12 @@ export function Editor({
     Boolean(state.lockOwner) ||
     Boolean(state.autosave?.otherChanges);
   return (
-    <div className="forma-editor__workspace">
+    <div
+      className="forma-editor__workspace"
+      style={{
+        gridTemplateColumns: `minmax(0, 1fr) min(${panelWidth}px, 90vw)`,
+      }}
+    >
       <iframe
         key={preview.version}
         className="forma-editor__preview"
@@ -358,6 +391,16 @@ export function Editor({
           <p role="status">{labels.loading}</p>
         )}
         <div className="forma-editor__controls">
+          <label htmlFor="forma-panel-width">{labels.panelWidth}</label>
+          <input
+            id="forma-panel-width"
+            type="range"
+            min="320"
+            max="800"
+            step="20"
+            value={panelWidth}
+            onChange={(event) => setPanelWidth(Number(event.target.value))}
+          />
           {lockError && (
             <div className="notice notice-error inline">
               <p role="alert">{labels.lockConnectionError}</p>
@@ -373,10 +416,9 @@ export function Editor({
             }
             type="text"
             disabled={disabled}
-            value={saver?.value ?? ""}
+            value={input.title}
             onChange={(event) => {
-              previewRequest.current++;
-              saver?.edit(event.target.value);
+              editField("title", event.target.value);
             }}
             onBlur={() => void refreshPreview()}
             onKeyDown={(event) => {
@@ -386,6 +428,18 @@ export function Editor({
               }
             }}
           />
+          {state && saver && (
+            <ContentEditor
+              key={contentVersion}
+              markup={editorMarkup}
+              initialContent={input.content}
+              disabled={disabled}
+              label={labels.content}
+              errorLabel={labels.editorError}
+              onChange={(value) => editField("content", value)}
+              onLeave={() => void refreshPreview()}
+            />
+          )}
           {(error || saveError) && (
             <div role="alert">
               <p>

@@ -16,5 +16,10 @@ export function start(config: EditorConfig & { nonce: string }) {
   if (!container) return;
 
   apiFetch.use(apiFetch.createNonceMiddleware(config.nonce));
-  mountEditor(container, <Editor {...config} />);
+  // Core prints TinyMCE configuration in the footer, after our bundle.
+  const mount = () =>
+    mountEditor(container, <Editor key={config.postId} {...config} />);
+  if (document.readyState === "loading")
+    document.addEventListener("DOMContentLoaded", mount, { once: true });
+  else mount();
 }

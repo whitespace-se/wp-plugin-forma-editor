@@ -15,6 +15,7 @@ function adapter(fetch) {
 }
 const state = {
   title: "",
+  content: "",
   status: "draft",
   previewUrl: "https://example.test/?preview=true",
 };
@@ -33,6 +34,19 @@ test("autosave sends the operation and raw title, including an empty title", asy
       data: { operation: "autosave", title: "" },
     },
   ]);
+});
+test("autosave sends title and raw content in one request, including clearing content", async () => {
+  for (const content of ["", '<p class="lead">A &amp; B</p>']) {
+    const call = adapter(async (options) => {
+      assert.deepEqual(JSON.parse(JSON.stringify(options.data)), {
+        operation: "autosave",
+        title: "Title ",
+        content,
+      });
+      return state;
+    });
+    await call("/forma/v1/posts/4/workflow", "autosave", "Title ", content);
+  }
 });
 test("publish carries no stale title or independently chosen status", async () => {
   const call = adapter(async (options) => {

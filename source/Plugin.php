@@ -93,10 +93,24 @@ final class Plugin
             '_forma_nonce' => wp_create_nonce('forma-preview-' . $post->ID),
         ], self::view_url($post));
 
+        // Generate the same filtered configuration and UI as the classic editor.
+        // React mounts the markup later, so core must not auto-initialize it.
+        wp_enqueue_media(['post' => $post->ID]);
+        ob_start();
+        wp_editor('', 'forma-content', [
+            'textarea_name' => 'content',
+            'textarea_rows' => 18,
+            'wpautop' => !has_blocks($post),
+            'tinymce' => ['wp_skip_init' => true],
+            'quicktags' => true,
+            'media_buttons' => true,
+        ]);
+        $editor_markup = ob_get_clean();
         wp_enqueue_script('forma-editor');
         wp_enqueue_style('forma-editor');
         wp_add_inline_script('forma-editor', 'FormaEditor.start(' . wp_json_encode([
             'postId' => $post->ID,
+            'editorMarkup' => $editor_markup,
             'classicUrl' => self::classic_url($post),
             'returnUrl' => admin_url('edit.php?post_type=' . $post->post_type),
             'workflowPath' => '/forma/v1/posts/' . $post->ID . '/workflow',
@@ -108,9 +122,12 @@ final class Plugin
                 'context' => __('Du redigerar', 'forma-editor'),
                 'heading' => get_post_type_object($post->post_type)->labels->singular_name,
                 'title' => __('Titel', 'forma-editor'),
+                'content' => __('Content'),
+                'panelWidth' => __('Panelbredd', 'forma-editor'),
+                'editorError' => __('Innehållseditorn kunde inte startas. Ladda om eller öppna klassiska editorn.', 'forma-editor'),
                 'preview' => __('Förhandsvisning av sidan', 'forma-editor'),
-                'loading' => __('Hämtar titel…', 'forma-editor'),
-                'error' => __('Titeln kunde inte hämtas. Försök igen.', 'forma-editor'),
+                'loading' => __('Hämtar innehåll…', 'forma-editor'),
+                'error' => __('Innehållet kunde inte hämtas. Försök igen.', 'forma-editor'),
                 'retry' => __('Försök igen', 'forma-editor'),
                 'publish' => __('Publicera', 'forma-editor'),
                 'update' => __('Uppdatera', 'forma-editor'),

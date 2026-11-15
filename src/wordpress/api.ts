@@ -4,8 +4,9 @@ export { apiFetch };
 
 export interface WorkflowState {
   title: string;
+  content: string;
   status: "draft" | "publish";
-  autosave: { title: string; otherChanges: boolean } | null;
+  autosave: { title: string; content: string; otherChanges: boolean } | null;
   canPublish: boolean;
   lockOwner: string | null;
   lock: string | null;
@@ -18,14 +19,20 @@ export async function workflow(
   path: string,
   operation: string,
   title?: string,
+  content?: string,
 ) {
   const state = await apiFetch<WorkflowState>({
     path,
     method: "POST",
-    data: { operation, ...(title === undefined ? {} : { title }) },
+    data: {
+      operation,
+      ...(title === undefined ? {} : { title }),
+      ...(content === undefined ? {} : { content }),
+    },
   });
   if (
     typeof state.title !== "string" ||
+    typeof state.content !== "string" ||
     !["draft", "publish"].includes(state.status) ||
     typeof state.previewUrl !== "string"
   ) {

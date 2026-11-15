@@ -53,6 +53,24 @@
   padding: 12px;
 }
 
+.forma-editor__controls input[type="range"] {
+  width: 100%;
+  margin: 0 0 12px;
+}
+
+.forma-editor__content {
+  margin-top: 16px;
+}
+
+.forma-editor__content textarea.wp-editor-area {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.forma-editor__content [aria-disabled="true"] {
+  opacity: 0.65;
+}
+
 .forma-editor__panel label {
   display: block;
   margin-block-end: 4px;

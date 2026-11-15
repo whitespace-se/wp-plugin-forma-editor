@@ -42,11 +42,12 @@ function check_workflow($condition, string $message): void {
     if (!$condition) throw new RuntimeException($message);
     $GLOBALS['forma_workflow_checks']++;
 }
-function call_workflow(int $id, string $operation, ?string $title = null) {
+function call_workflow(int $id, string $operation, ?string $title = null, ?string $content = null) {
     $request = new WP_REST_Request('POST', '/forma/v1/posts/' . $id . '/workflow');
     $request->set_param('id', $id);
     $request->set_param('operation', $operation);
     if ($title !== null) $request->set_param('title', $title);
+    if ($content !== null) $request->set_param('content', $content);
     $result = Workflow::handle($request);
     if ($result instanceof WP_REST_Response) {
         if ($result->is_error()) return $result->as_error();
@@ -93,13 +94,34 @@ try {
     check_workflow(get_post_status($draft) === 'publish', 'Publish draft');
     // Classic-editor autosaves use this same core function and storage.
     wp_create_post_autosave(['post_ID' => $draft, 'post_type' => 'post', 'post_title' => 'Classic title', 'post_content' => 'Classic content', 'post_excerpt' => 'Keep excerpt']);
-    $state = call_workflow($draft, 'resume');
-    check_workflow($state['autosave']['otherChanges'], 'Detect classic content work');
+    $state = call_workflow($draft, 'open');
+    check_workflow(!$state['autosave']['otherChanges'] && $state['autosave']['content'] === 'Classic content', 'Resume classic title and content together');
+    check_workflow(str_contains($state['previewUrl'], 'preview_nonce='), 'Classic content preview resumes automatically');
+    call_workflow($draft, 'publish');
+    check_workflow(get_post($draft)->post_content === 'Classic content', 'Publish resumed classic content');
+    wp_create_post_autosave(['post_ID' => $draft, 'post_type' => 'post', 'post_title' => 'Classic title', 'post_content' => 'Classic content', 'post_excerpt' => 'Changed excerpt']);
+    $state = call_workflow($draft, 'open');
+    check_workflow($state['autosave']['otherChanges'], 'Detect unsupported excerpt work');
     check_workflow(!str_contains(call_workflow($draft, 'open')['previewUrl'], 'preview_nonce='), 'Unsupported classic changes are not automatically previewed');
     check_workflow(is_wp_error(call_workflow($draft, 'autosave', 'Do not overwrite')), 'Do not overwrite classic content');
     check_workflow(is_wp_error(call_workflow($draft, 'publish')), 'Do not silently publish classic content');
     call_workflow($draft, 'discard');
-    check_workflow(!wp_get_post_autosave($draft, $users[0]) && get_post($draft)->post_content === 'Keep content', 'Discard only own autosave');
+    check_workflow(!wp_get_post_autosave($draft, $users[0]) && get_post($draft)->post_content === 'Classic content', 'Discard only own autosave');
+    $html = '<h2>Heading</h2><p class="lead">Text <a href="https://example.org/">link</a></p><ul><li>Item</li></ul><table><tbody><tr><td>Cell</td></tr></tbody></table>[caption id="attachment_1" align="alignnone" width="300"]<img src="https://example.org/image.jpg" alt="Description" width="300" />Caption[/caption]';
+    $state = call_workflow($draft, 'autosave', 'Together', $html);
+    check_workflow($state['autosave']['title'] === 'Together' && $state['autosave']['content'] === $html, 'One autosave holds title and full HTML including shortcode');
+    check_workflow(get_post($draft)->post_content === 'Classic content', 'Content autosave leaves published version intact');
+    $auto = wp_get_post_autosave($draft, $users[0]);
+    check_workflow($auto->post_content === $html, 'Core autosave retains markup and attributes');
+    call_workflow($draft, 'autosave', 'Classic title', 'Classic content');
+    check_workflow(!wp_get_post_autosave($draft, $users[0]), 'Revert both fields removes autosave');
+    call_workflow($draft, 'autosave', 'Together', $html);
+    call_workflow($draft, 'publish');
+    check_workflow(get_post($draft)->post_content === $html && get_post($draft)->post_title === 'Together', 'Publish commits both fields');
+    call_workflow($draft, 'autosave', 'Together', '');
+    check_workflow(wp_get_post_autosave($draft, $users[0])->post_content === '', 'Clearing content is autosaved');
+    call_workflow($draft, 'discard');
+    check_workflow(get_post($draft)->post_content === $html, 'Discard restores persisted content');
     wp_set_current_user($users[1]);
     check_workflow((bool) call_workflow($draft, 'open')['lockOwner'], 'Second editor sees lock');
     check_workflow(is_wp_error(call_workflow($draft, 'autosave', 'Blocked')), 'Locked write refused');
