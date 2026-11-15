@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { workflow, type WorkflowState } from "../wordpress/api";
 import { Autosave } from "./Autosave";
 import { observePostLock } from "../wordpress/locks";
@@ -31,6 +31,21 @@ export function Editor({
   labels,
 }: EditorConfig) {
   const [panelWidth, setPanelWidth] = useState(420);
+  const panelTop = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const top = panelTop.current!;
+    const panel = top.parentElement!;
+    // Notices and wrapping labels change this offset independently of scroll.
+    const measure = () =>
+      panel.style.setProperty(
+        "--forma-panel-top-height",
+        `${top.getBoundingClientRect().height}px`,
+      );
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(top);
+    return () => observer.disconnect();
+  }, []);
   const [resizing, setResizing] = useState(false);
   const [contentVersion, setContentVersion] = useState(0);
   const [state, setState] = useState<WorkflowState>();
@@ -345,7 +360,7 @@ export function Editor({
         className="forma-editor__panel"
         aria-labelledby="forma-heading"
       >
-        <div className="forma-editor__panel-top">
+        <div className="forma-editor__panel-top" ref={panelTop}>
           <div className="forma-editor__actions" ref={setActionsTarget} />
           {resumed && !state?.autosave?.otherChanges && !state?.lockOwner && (
             <div className="notice notice-info inline is-dismissible forma-editor__restore">
