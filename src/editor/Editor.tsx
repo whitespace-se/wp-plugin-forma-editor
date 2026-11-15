@@ -4,6 +4,7 @@ import { Autosave } from "./Autosave";
 import { observePostLock } from "../wordpress/locks";
 import { LockDialog } from "./LockDialog";
 import { ContentEditor } from "./ContentEditor";
+import { PanelResize } from "./PanelResize";
 import { PublishControls } from "./PublishControls";
 
 export interface EditorConfig {
@@ -30,6 +31,7 @@ export function Editor({
   labels,
 }: EditorConfig) {
   const [panelWidth, setPanelWidth] = useState(420);
+  const [resizing, setResizing] = useState(false);
   const [contentVersion, setContentVersion] = useState(0);
   const [state, setState] = useState<WorkflowState>();
   const [resumed, setResumed] = useState(false);
@@ -321,7 +323,7 @@ export function Editor({
     Boolean(state.autosave?.otherChanges);
   return (
     <div
-      className="forma-editor__workspace"
+      className={`forma-editor__workspace${resizing ? " forma-editor__workspace--resizing" : ""}`}
       style={{
         gridTemplateColumns: `minmax(0, 1fr) min(${panelWidth}px, 90vw)`,
       }}
@@ -332,7 +334,17 @@ export function Editor({
         src={preview.url}
         title={labels.preview}
       />
-      <aside className="forma-editor__panel" aria-labelledby="forma-heading">
+      <PanelResize
+        width={panelWidth}
+        label={labels.panelWidth}
+        onChange={setPanelWidth}
+        onDragging={setResizing}
+      />
+      <aside
+        id="forma-panel"
+        className="forma-editor__panel"
+        aria-labelledby="forma-heading"
+      >
         <div className="forma-editor__actions" ref={setActionsTarget} />
         {resumed && !state?.autosave?.otherChanges && !state?.lockOwner && (
           <div className="notice notice-info inline is-dismissible forma-editor__restore">
@@ -391,16 +403,6 @@ export function Editor({
           <p role="status">{labels.loading}</p>
         )}
         <div className="forma-editor__controls">
-          <label htmlFor="forma-panel-width">{labels.panelWidth}</label>
-          <input
-            id="forma-panel-width"
-            type="range"
-            min="320"
-            max="800"
-            step="20"
-            value={panelWidth}
-            onChange={(event) => setPanelWidth(Number(event.target.value))}
-          />
           {lockError && (
             <div className="notice notice-error inline">
               <p role="alert">{labels.lockConnectionError}</p>

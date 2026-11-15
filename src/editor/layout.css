@@ -28,6 +28,7 @@
 }
 
 .forma-editor__panel {
+  grid-area: 1 / 2;
   box-sizing: border-box;
   overflow: auto;
   background: #f0f0f1;
@@ -53,9 +54,35 @@
   padding: 12px;
 }
 
-.forma-editor__controls input[type="range"] {
-  width: 100%;
-  margin: 0 0 12px;
+.forma-editor__resize {
+  grid-area: 1 / 2;
+  justify-self: start;
+  width: 10px;
+  margin-left: -5px;
+  z-index: 2;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.forma-editor__resize:hover,
+.forma-editor__resize:focus-visible,
+.forma-editor__workspace--resizing .forma-editor__resize {
+  background: var(--wp-admin-theme-color, #2271b1);
+}
+
+.forma-editor__resize:focus-visible {
+  outline: 2px solid var(--wp-admin-theme-color, #2271b1);
+  outline-offset: -2px;
+}
+
+.forma-editor__workspace--resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+/* Neither the preview nor TinyMCE may take the pointer across documents. */
+.forma-editor__workspace--resizing iframe {
+  pointer-events: none;
 }
 
 .forma-editor__content {
