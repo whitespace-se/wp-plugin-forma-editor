@@ -345,30 +345,32 @@ export function Editor({
         className="forma-editor__panel"
         aria-labelledby="forma-heading"
       >
-        <div className="forma-editor__actions" ref={setActionsTarget} />
-        {resumed && !state?.autosave?.otherChanges && !state?.lockOwner && (
-          <div className="notice notice-info inline is-dismissible forma-editor__restore">
-            <p>{labels.resumedNotice}</p>
-            <button
-              type="button"
-              className="notice-dismiss"
-              aria-label={labels.dismissNotice}
-              onClick={() => setResumed(false)}
-            />
-          </div>
-        )}
-        {state?.autosave?.otherChanges && !state.lockOwner && (
-          <div className="notice notice-warning inline forma-editor__restore">
-            <p id="forma-autosave-blocked">{labels.otherChanges}</p>
-            <p>
-              <a href={classicUrl}>{labels.openClassic}</a>
-            </p>
-          </div>
-        )}
-        <header className="forma-editor__panel-header">
-          <p>{labels.context}</p>
-          <h1 id="forma-heading">{labels.heading}</h1>
-        </header>
+        <div className="forma-editor__panel-top">
+          <div className="forma-editor__actions" ref={setActionsTarget} />
+          {resumed && !state?.autosave?.otherChanges && !state?.lockOwner && (
+            <div className="notice notice-info inline is-dismissible forma-editor__restore">
+              <p>{labels.resumedNotice}</p>
+              <button
+                type="button"
+                className="notice-dismiss"
+                aria-label={labels.dismissNotice}
+                onClick={() => setResumed(false)}
+              />
+            </div>
+          )}
+          {state?.autosave?.otherChanges && !state.lockOwner && (
+            <div className="notice notice-warning inline forma-editor__restore">
+              <p id="forma-autosave-blocked">{labels.otherChanges}</p>
+              <p>
+                <a href={classicUrl}>{labels.openClassic}</a>
+              </p>
+            </div>
+          )}
+          <header className="forma-editor__panel-header">
+            <p>{labels.context}</p>
+            <h1 id="forma-heading">{labels.heading}</h1>
+          </header>
+        </div>
         {state ? (
           <PublishControls
             key={state.status}

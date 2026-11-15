@@ -37,6 +37,23 @@
 }
 
 /* Match WordPress customize-controls.css without loading its global layout. */
+.forma-editor__panel-top {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: #f0f0f1;
+}
+
+/* TinyMCE owns the fullscreen lifecycle and viewport sizing. Remove the admin
+   chrome only while its fullscreen class is present, including on teardown. */
+body.forma-editor-screen.mce-fullscreen #wpadminbar {
+  display: none;
+}
+
+body.forma-editor-screen.mce-fullscreen .forma-editor__workspace {
+  inset: 0;
+}
+
 .forma-editor__panel-header {
   padding: 10px 10px 12px 14px;
   background: #fff;
