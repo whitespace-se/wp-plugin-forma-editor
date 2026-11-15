@@ -109,10 +109,33 @@ body.forma-editor-screen.mce-fullscreen .forma-editor__workspace {
 /* Stick the whole top-part: its toolbar child has a toolbar-height containing
    block and cannot travel with the panel scroll. The top-part is instead
    bounded by the editor's full-height container. Exclude fullscreen. */
-.forma-editor__content .mce-tinymce:not(.mce-fullscreen) .mce-top-part {
+.forma-editor__content .mce-tinymce:not(.mce-fullscreen) .mce-top-part,
+.forma-editor__content .quicktags-toolbar {
+  position: sticky;
+  top: calc(
+    var(--forma-panel-top-height, 0px) +
+      var(--forma-content-label-height, 0px) +
+      var(--forma-content-tools-height, 0px)
+  );
+  z-index: 2;
+}
+
+.forma-editor__panel .forma-editor__content > label {
   position: sticky;
   top: var(--forma-panel-top-height, 0px);
   z-index: 2;
+  margin-block-end: 0;
+  padding-bottom: 4px;
+  background: #f0f0f1;
+}
+
+.forma-editor__content .wp-editor-tools {
+  position: sticky;
+  top: calc(
+    var(--forma-panel-top-height, 0px) + var(--forma-content-label-height, 0px)
+  );
+  z-index: 2;
+  background: #f0f0f1;
 }
 
 .forma-editor__content textarea.wp-editor-area {
