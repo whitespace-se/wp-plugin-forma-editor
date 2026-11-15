@@ -106,9 +106,10 @@ body.forma-editor-screen.mce-fullscreen .forma-editor__workspace {
   margin-top: 16px;
 }
 
-/* Stay within the editor, below the variable-height panel header. Fullscreen
-   has its own viewport and toolbar positioning. */
-.forma-editor__content .mce-tinymce:not(.mce-fullscreen) .mce-toolbar-grp {
+/* Stick the whole top-part: its toolbar child has a toolbar-height containing
+   block and cannot travel with the panel scroll. The top-part is instead
+   bounded by the editor's full-height container. Exclude fullscreen. */
+.forma-editor__content .mce-tinymce:not(.mce-fullscreen) .mce-top-part {
   position: sticky;
   top: var(--forma-panel-top-height, 0px);
   z-index: 2;
