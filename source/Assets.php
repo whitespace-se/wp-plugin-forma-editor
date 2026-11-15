@@ -19,6 +19,7 @@ final class Assets
         // local Composer installs inside the public plugin URL space.
         $url = plugin_dir_url(FORMA_EDITOR_FILE) . 'build/';
         wp_register_script('forma-editor', $url . 'editor.js', [...$asset['dependencies'], 'heartbeat'], $asset['version'], true);
-        wp_register_style('forma-editor', $url . 'editor.css', [], $asset['version']);
+        // CSS-only fixes must invalidate caches even when the JS bundle is unchanged.
+        wp_register_style('forma-editor', $url . 'editor.css', [], hash_file('sha256', $directory . 'editor.css'));
     }
 }
