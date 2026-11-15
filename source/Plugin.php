@@ -101,7 +101,12 @@ final class Plugin
             'textarea_name' => 'content',
             'textarea_rows' => 18,
             'wpautop' => !has_blocks($post),
-            'tinymce' => ['wp_skip_init' => true],
+            'tinymce' => [
+                'wp_skip_init' => true,
+                'wp_autoresize_on' => true,
+                'autoresize_min_height' => 300,
+                'resize' => false,
+            ],
             'quicktags' => true,
             'media_buttons' => true,
         ]);

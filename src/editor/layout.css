@@ -76,7 +76,7 @@ body.forma-editor-screen.mce-fullscreen .forma-editor__workspace {
   justify-self: start;
   width: 10px;
   margin-left: -5px;
-  z-index: 2;
+  z-index: 4;
   cursor: col-resize;
   touch-action: none;
 }
