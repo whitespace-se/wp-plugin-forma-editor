@@ -39,6 +39,10 @@ if (!class_exists(Workflow::class)) {
     require_once __DIR__ . '/source/Workflow.php';
 }
 add_action('rest_api_init', [Workflow::class, 'register']);
+require_once __DIR__ . '/source/NavigationFields.php';
+require_once __DIR__ . '/source/NavigationPreview.php';
+NavigationFields::register();
+add_action('template_redirect', [NavigationPreview::class, 'prepare'], -10);
 
 // Registration is inert until the editor screen explicitly enqueues its assets.
 add_action('init', [Assets::class, 'register']);

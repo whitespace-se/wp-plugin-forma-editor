@@ -57,6 +57,28 @@ test("publish carries no stale title or independently chosen status", async () =
   });
   await call("/forma/v1/posts/4/workflow", "publish");
 });
+test("navigation is saved in the same request without normalizing text or checkbox values", async () => {
+  const navigation = {
+    field_56d83d4e77786: "Menu title ",
+    field_56d83d2777785: "0",
+  };
+  const call = adapter(async (options) => {
+    assert.deepEqual(JSON.parse(JSON.stringify(options.data)), {
+      operation: "autosave",
+      title: "Title",
+      content: "Content",
+      navigation,
+    });
+    return state;
+  });
+  await call(
+    "/forma/v1/posts/4/workflow",
+    "autosave",
+    "Title",
+    "Content",
+    navigation,
+  );
+});
 test("invalid responses cannot be treated as saved", async () => {
   for (const response of [
     {},

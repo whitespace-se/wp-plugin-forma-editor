@@ -6,10 +6,12 @@ import { LockDialog } from "./LockDialog";
 import { ContentEditor } from "./ContentEditor";
 import { PanelResize } from "./PanelResize";
 import { PublishControls } from "./PublishControls";
+import { NavigationFields } from "./NavigationFields";
 
 export interface EditorConfig {
   postId: number;
   editorMarkup: string;
+  navigationMarkup?: string;
   workflowPath: string;
   ajaxUrl: string;
   lockNonce: string;
@@ -22,6 +24,7 @@ export interface EditorConfig {
 export function Editor({
   postId,
   editorMarkup,
+  navigationMarkup,
   workflowPath,
   ajaxUrl,
   lockNonce,
@@ -80,14 +83,28 @@ export function Editor({
     }
   }
 
-  function createQueue(value: { title: string; content: string }) {
+  function createQueue(value: {
+    title: string;
+    content: string;
+    navigation?: Record<string, string>;
+  }) {
     setContentVersion((n) => n + 1);
     queue.current?.dispose();
     queue.current = new Autosave(
-      JSON.stringify({ title: value.title, content: value.content }),
+      JSON.stringify({
+        title: value.title,
+        content: value.content,
+        navigation: value.navigation ?? {},
+      }),
       (raw) => {
         const input = JSON.parse(raw);
-        return workflow(workflowPath, "autosave", input.title, input.content);
+        return workflow(
+          workflowPath,
+          "autosave",
+          input.title,
+          input.content,
+          input.navigation,
+        );
       },
       (next) => {
         if (mounted.current) {
@@ -250,7 +267,7 @@ export function Editor({
       if (
         !anchor ||
         anchor.closest(
-          ".forma-editor__content, .mce-container, .media-modal, #wp-link-wrap",
+          ".forma-editor__content, .forma-editor__navigation, .mce-container, .media-modal, #wp-link-wrap",
         ) ||
         anchor.hasAttribute("data-forma-leave-lock") ||
         anchor.target === "_blank" ||
@@ -306,10 +323,17 @@ export function Editor({
   }, []);
 
   const saver = queue.current;
-  const input: { title: string; content: string } = saver
+  const input: {
+    title: string;
+    content: string;
+    navigation: Record<string, string>;
+  } = saver
     ? JSON.parse(saver.value)
-    : { title: "", content: "" };
-  const editField = (field: "title" | "content", value: string) => {
+    : { title: "", content: "", navigation: {} };
+  const editField = (
+    field: "title" | "content" | "navigation",
+    value: string | Record<string, string>,
+  ) => {
     if (
       !queue.current ||
       acting.current ||
@@ -324,7 +348,7 @@ export function Editor({
   };
   const saveError = saver?.error as {
     message?: string;
-    data?: { status?: number };
+    data?: { status?: number; fields?: { input: string; message: string }[] };
   } | null;
   const [actionsTarget, setActionsTarget] = useState<HTMLDivElement | null>(
     null,
@@ -482,6 +506,19 @@ export function Editor({
             </div>
           )}
         </div>
+        {navigationMarkup && state && saver && (
+          <NavigationFields
+            key={contentVersion}
+            markup={navigationMarkup}
+            initialValues={input.navigation}
+            disabled={disabled}
+            label={labels.navigation}
+            errorLabel={labels.navigationError}
+            errors={saveError?.data?.fields}
+            onChange={(value) => editField("navigation", value)}
+            onLeave={() => void refreshPreview()}
+          />
+        )}
       </aside>
       <LockDialog
         owner={state?.lockOwner ?? null}

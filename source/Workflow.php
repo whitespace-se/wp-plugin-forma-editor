@@ -17,6 +17,7 @@ final class Workflow
                 'operation' => ['required' => true, 'enum' => ['open', 'pulse', 'takeover', 'resume', 'discard', 'autosave', 'publish', 'draft']],
                 'title' => ['type' => 'string'],
                 'content' => ['type' => 'string'],
+                'navigation' => ['type' => 'object'],
             ],
         ]);
     }
@@ -39,6 +40,13 @@ final class Workflow
         }
         wp_set_post_lock($post->ID);
         $autosave = wp_get_post_autosave($post->ID, get_current_user_id());
+        $navigation = NavigationFields::values($post->ID, $autosave ? $autosave->ID : null);
+        if (in_array($operation, ['autosave', 'publish', 'draft'], true) && NavigationFields::fields($post->ID)) {
+            $navigation = NavigationFields::validate($post->ID, $request['navigation'] ?? $navigation);
+            if (is_wp_error($navigation)) return $navigation;
+        } elseif ($request['navigation']) {
+            return new \WP_Error('forma_acf_unavailable', __('Navigationsfälten stöds inte på den här posten.', 'forma-editor'), ['status' => 400]);
+        }
 
         if ($operation === 'discard' && $autosave) {
             $deleted = wp_delete_post_revision($autosave->ID);
@@ -55,7 +63,7 @@ final class Workflow
             }
             // Core returns an existing autosave unchanged when the new values
             // equal the parent. Remove it explicitly when undoing all supported fields.
-            if ($autosave && $request['title'] === $post->post_title && ($request['content'] ?? $autosave->post_content) === $post->post_content) {
+            if ($autosave && $request['title'] === $post->post_title && ($request['content'] ?? $autosave->post_content) === $post->post_content && $navigation === NavigationFields::values($post->ID)) {
                 wp_delete_post_revision($autosave->ID);
                 return self::state($post, false);
             }
@@ -68,7 +76,7 @@ final class Workflow
                 'content' => $request['content'] ?? $source->post_content,
                 'excerpt' => $source->post_excerpt,
             ]);
-            $result = rest_do_request($core);
+            $result = NavigationFields::save($post, $core, $navigation, true);
             if ($result->is_error()) {
                 return $result;
             }
@@ -91,7 +99,7 @@ final class Workflow
                 'content' => $autosave ? $autosave->post_content : $post->post_content,
                 'status' => $operation === 'publish' ? 'publish' : 'draft',
             ]);
-            $result = rest_do_request($core);
+            $result = NavigationFields::save($post, $core, $navigation, false);
             if ($result->is_error()) {
                 return $result;
             }
@@ -112,17 +120,20 @@ final class Workflow
             return true;
         }
         foreach (wp_post_revision_meta_keys($post->post_type) as $key) {
+            if (NavigationFields::fields($post->ID) && in_array($key, array_merge(NavigationFields::keys(), ['_acf_changed']), true)) continue;
             if (get_post_meta($post->ID, $key) !== get_post_meta($autosave->ID, $key)) {
                 return true;
             }
         }
-        return false;
+        return NavigationFields::unsupported_changes($post->ID, $autosave->ID);
     }
 
     private static function state(\WP_Post $post, bool $preview_autosave): array
     {
         $autosave = wp_get_post_autosave($post->ID, get_current_user_id());
-        $different = $autosave && ($post->post_title !== $autosave->post_title || $post->post_content !== $autosave->post_content || self::other_changes($post, $autosave));
+        $navigation = NavigationFields::values($post->ID);
+        $autosave_navigation = $autosave ? NavigationFields::values($post->ID, $autosave->ID) : [];
+        $different = $autosave && ($post->post_title !== $autosave->post_title || $post->post_content !== $autosave->post_content || $navigation !== $autosave_navigation || self::other_changes($post, $autosave));
         $owner = wp_check_post_lock($post->ID);
         $preview_args = [
             'forma-preview' => $post->ID,
@@ -144,8 +155,9 @@ final class Workflow
         return [
             'title' => $post->post_title,
             'content' => $post->post_content,
+            'navigation' => (object) $navigation,
             'status' => $post->post_status,
-            'autosave' => $different ? ['title' => $autosave->post_title, 'content' => $autosave->post_content, 'otherChanges' => self::other_changes($post, $autosave)] : null,
+            'autosave' => $different ? ['title' => $autosave->post_title, 'content' => $autosave->post_content, 'navigation' => (object) $autosave_navigation, 'otherChanges' => self::other_changes($post, $autosave)] : null,
             'canPublish' => current_user_can(get_post_type_object($post->post_type)->cap->publish_posts),
             'lockOwner' => $owner ? get_userdata($owner)->display_name : null,
             'lock' => $owner ? null : get_post_meta($post->ID, '_edit_lock', true),

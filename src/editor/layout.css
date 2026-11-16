@@ -71,6 +71,29 @@ body.forma-editor-screen.mce-fullscreen .forma-editor__workspace {
   padding: 12px;
 }
 
+.forma-editor__navigation {
+  border-top: 1px solid #dcdcde;
+  padding: 12px;
+}
+
+.forma-editor__navigation fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.forma-editor__navigation legend {
+  padding: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.forma-editor__navigation .acf-fields > .acf-field {
+  padding: 12px 0;
+  border: 0;
+}
+
 .forma-editor__resize {
   grid-area: 1 / 2;
   justify-self: start;

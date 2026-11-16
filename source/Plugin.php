@@ -111,11 +111,13 @@ final class Plugin
             'media_buttons' => true,
         ]);
         $editor_markup = ob_get_clean();
+        $navigation_markup = NavigationFields::markup($post->ID);
         wp_enqueue_script('forma-editor');
         wp_enqueue_style('forma-editor');
         wp_add_inline_script('forma-editor', 'FormaEditor.start(' . wp_json_encode([
             'postId' => $post->ID,
             'editorMarkup' => $editor_markup,
+            'navigationMarkup' => $navigation_markup,
             'classicUrl' => self::classic_url($post),
             'returnUrl' => admin_url('edit.php?post_type=' . $post->post_type),
             'workflowPath' => '/forma/v1/posts/' . $post->ID . '/workflow',
@@ -128,6 +130,8 @@ final class Plugin
                 'heading' => get_post_type_object($post->post_type)->labels->singular_name,
                 'title' => __('Titel', 'forma-editor'),
                 'content' => __('Content'),
+                'navigation' => __('Navigationsinställningar', 'forma-editor'),
+                'navigationError' => __('Navigationsinställningarna kunde inte startas. Ladda om eller öppna klassiska editorn.', 'forma-editor'),
                 'panelWidth' => __('Panelbredd', 'forma-editor'),
                 'editorError' => __('Innehållseditorn kunde inte startas. Ladda om eller öppna klassiska editorn.', 'forma-editor'),
                 'preview' => __('Förhandsvisning av sidan', 'forma-editor'),
