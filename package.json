@@ -1,6 +1,6 @@
 {
   "name": "@whitespace/forma-editor",
-  "version": "0.1.0-dev",
+  "version": "0.1.0-alpha.1",
   "private": true,
   "type": "module",
   "license": "GPL-2.0-or-later",

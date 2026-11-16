@@ -1,9 +1,10 @@
 # Forma Editor
 
-An open source visual editing workspace for WordPress. Early development: this
-editor currently previews pages and posts alongside a read-only title field.
-Editing and saving are not implemented yet. Gutenberg integration is outside the
-initial scope.
+An open source visual editing workspace for WordPress. This alpha edits page and
+post titles and classic-editor content alongside a site preview. It uses
+WordPress autosaves, revisions, editing locks and draft/published states. Inline
+editing, ACF and Modularity editing, and Gutenberg integration are not included.
+Use the classic editor for unsupported fields and publishing options.
 
 ## Development
 
@@ -17,16 +18,19 @@ WordPress supplies React and `apiFetch` at runtime. The npm copies provide build
 and type tooling; the bundle externalizes them. Set `SCRIPT_DEBUG` in WordPress
 for its development scripts and use the development build for editor source
 maps. The initial compatibility target is WordPress 6.6+ and PHP 8.1+; runtime
-validation is still pending.
+validation has covered WordPress 6.9.8 on Municipio M5; the full
+supported-version matrix has not yet been verified.
 
 Install the plugin directory including `build/` in WordPress and activate it.
 The Composer package is `whitespace-se/wp-plugin-forma-editor`, installed as
-`forma-editor` through `composer/installers`. Until a tagged release exists, use
-the GitHub VCS repository and an explicitly locked `dev-main` requirement. The
-frontend toolbar's edit link opens Forma for published posts and drafts. Use the
-toolbar to view the page or switch to the classic editor. Content is not
-modified. Custom post types must opt in through `forma_editor_post_types` and
-support titles, REST access and frontend viewing.
+`forma-editor` through `composer/installers`. Use the GitHub VCS repository and
+the exact `0.1.0-alpha.1` requirement. Installable ZIP files are provided with
+[GitHub releases](https://github.com/whitespace-se/wp-plugin-forma-editor/releases).
+The frontend toolbar's edit link opens Forma for published posts and drafts. Use
+the toolbar to view the page or switch to the classic editor. Published content
+changes only after an explicit update; WordPress may save an author's own draft
+directly during autosave. Custom post types must opt in through
+`forma_editor_post_types` and support titles, REST access and frontend viewing.
 
 The preview blocks link/button activation and form submission while retaining
 scrolling. Use the toolbar to view the interactive site or choose another post.
