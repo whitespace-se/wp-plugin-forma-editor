@@ -1,2 +1,2 @@
 <?php
-return ['dependencies' => ['react', 'react-dom', 'wp-api-fetch'], 'version' => '909476a673f53610'];
+return ['dependencies' => ['react', 'react-dom', 'wp-api-fetch'], 'version' => 'f48cf91cb2fd2755'];

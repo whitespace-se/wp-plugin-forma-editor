@@ -58,12 +58,13 @@ export function NavigationFields({
       return;
     }
     node.innerHTML = markup;
-    for (const input of node.querySelectorAll<HTMLInputElement>(
-      "input[name]",
-    )) {
+    for (const input of node.querySelectorAll<
+      HTMLInputElement | HTMLSelectElement
+    >("input[name], select[name]")) {
       const key = /^acf\[([^\]]+)\]$/.exec(input.name)?.[1];
       if (!key || !(key in initialValues)) continue;
-      if (input.type === "checkbox") input.checked = initialValues[key] === "1";
+      if (input instanceof HTMLInputElement && input.type === "checkbox")
+        input.checked = initialValues[key] === "1";
       else if (input.type !== "hidden") input.value = initialValues[key];
     }
     const element = jquery(node);
@@ -126,9 +127,9 @@ export function NavigationFields({
       onBlur={() => callbacks.current.onLeave()}
     >
       <fieldset disabled={disabled || failed}>
-        <legend>{label}</legend>
+        <legend className="screen-reader-text">{label}</legend>
         {failed && <p role="alert">{errorLabel}</p>}
-        <div ref={host} className="acf-fields" />
+        <div ref={host} />
       </fieldset>
     </form>
   );

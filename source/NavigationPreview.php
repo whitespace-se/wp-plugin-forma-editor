@@ -40,7 +40,9 @@ final class NavigationPreview
             return $resolved;
         }, 100, 2);
 
-        if (!class_exists(NavigationWpCache::class) || !class_exists(NavigationRuntimeCache::class)) return;
+        $values = NavigationFields::values($id, $revision->ID);
+        if (!array_key_exists('field_56d83d2777785', $values)
+            || !class_exists(NavigationWpCache::class) || !class_exists(NavigationRuntimeCache::class)) return;
         // All derived menu caches must miss too; otherwise isCached menu items
         // bypass the title decorator. A per-request namespace never reads or
         // overwrites a public menu. Remove its persistent entries on shutdown.
@@ -69,7 +71,6 @@ final class NavigationPreview
             if ($row->meta_key === 'hide_in_menu' && $row->meta_value === '1') $hidden[] = (int) $row->post_id;
             if ($row->meta_key === 'custom_menu_title' && $row->meta_value !== '') $titles[(int) $row->post_id] = $row->meta_value;
         }
-        $values = NavigationFields::values($id, $revision->ID);
         $hidden = array_values(array_diff($hidden, [$id]));
         if (($values['field_56d83d2777785'] ?? '0') === '1') $hidden[] = $id;
         unset($titles[$id]);

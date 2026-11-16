@@ -7,33 +7,41 @@ namespace Whitespace\FormaEditor;
 /** Deliberately bounded ACF adapter: this is not a generic metabox bridge. */
 final class NavigationFields
 {
-    private const GROUP = 'group_56d83cff12bb3';
+    private const GROUPS = ['group_56d83cff12bb3', 'group_municipio_cloud_nora_customizations_fargtema'];
     private const FIELDS = [
         'field_page_hide_secondary_menu' => ['page_hide_secondary_menu', 'true_false'],
         'field_56d83d2777785' => ['hide_in_menu', 'true_false'],
         'field_56d83d4e77786' => ['custom_menu_title', 'text'],
+        'field_municipio_cloud_nora_customizations_fargtema' => ['field_fargtema', 'select'],
     ];
 
     public static function fields(int $post_id): array
     {
+        return array_merge([], ...array_column(self::groups($post_id), 'fields'));
+    }
+
+    private static function groups(int $post_id): array
+    {
         if (!function_exists('acf_get_field_groups') || get_post_type($post_id) !== 'page') {
             return [];
         }
+        $groups = [];
         foreach (acf_get_field_groups(['post_id' => $post_id]) as $group) {
-            if ($group['key'] !== self::GROUP) continue;
+            if (!in_array($group['key'], self::GROUPS, true)) continue;
             $fields = acf_get_fields($group) ?: [];
             // Fail closed if a site changes this group to unsupported field types.
             foreach ($fields as $field) {
-                if ((self::FIELDS[$field['key']] ?? null) !== [$field['name'], $field['type']]) return [];
+                if ((self::FIELDS[$field['key']] ?? null) !== [$field['name'], $field['type']]) continue 2;
+                if ($field['type'] === 'select' && (!empty($field['multiple']) || !empty($field['ajax']))) continue 2;
             }
-            return $fields;
+            $groups[$group['key']] = ['title' => $group['title'], 'fields' => $fields];
         }
-        return [];
+        return array_intersect_key(array_replace(array_fill_keys(self::GROUPS, null), $groups), $groups);
     }
 
-    public static function keys(): array
+    public static function keys(?int $post_id = null): array
     {
-        $names = array_column(self::FIELDS, 0);
+        $names = $post_id === null ? array_column(self::FIELDS, 0) : array_column(self::fields($post_id), 'name');
         return array_merge($names, array_map(static fn($name) => '_' . $name, $names));
     }
 
@@ -44,7 +52,7 @@ final class NavigationFields
                 ? array_values(array_unique(array_merge($keys, self::keys()))) : $keys;
         }, 20, 2);
         // ACF restores all its metadata from revisions. A Forma revision must
-        // therefore carry untouched ACF fields too, not just our three inputs.
+        // therefore carry untouched ACF fields too, not just the visible inputs.
         add_action('_wp_put_post_revision', static function (int $revision, int $parent): void {
             if (self::$saving && $parent === self::$saving && function_exists('acf_copy_metadata')) {
                 acf_copy_metadata($parent, $revision);
@@ -80,7 +88,11 @@ final class NavigationFields
         // explicit so React cannot mount the fields before acf-input is loaded.
         wp_scripts()->registered['forma-editor']->deps[] = 'acf-input';
         ob_start();
-        acf_render_fields($fields, $post_id, 'div', 'label');
+        foreach (self::groups($post_id) as $group) {
+            echo '<fieldset class="forma-editor__acf-group"><legend>' . esc_html($group['title']) . '</legend><div class="acf-fields">';
+            acf_render_fields($group['fields'], $post_id, 'div', 'label');
+            echo '</div></fieldset>';
+        }
         return (string) ob_get_clean();
     }
 
@@ -88,14 +100,15 @@ final class NavigationFields
     {
         $fields = self::fields($post_id);
         if (!is_array($values) || array_diff(array_keys($values), array_column($fields, 'key'))) {
-            return new \WP_Error('forma_acf_fields', __('Navigationsfälten kunde inte verifieras. Ladda om editorn.', 'forma-editor'), ['status' => 400]);
+            return new \WP_Error('forma_acf_fields', __('Sidinställningarna kunde inte verifieras. Ladda om editorn.', 'forma-editor'), ['status' => 400]);
         }
         if (!$fields) return [];
         acf_reset_validation_errors();
         foreach ($fields as $field) {
             $value = $values[$field['key']] ?? null;
-            if (!is_string($value) || ($field['type'] === 'true_false' && !in_array($value, ['0', '1'], true))) {
-                return new \WP_Error('forma_acf_value', __('Ett navigationsfält har ett ogiltigt värde.', 'forma-editor'), ['status' => 400]);
+            if (!is_string($value) || ($field['type'] === 'true_false' && !in_array($value, ['0', '1'], true))
+                || ($field['type'] === 'select' && !array_key_exists($value, $field['choices']))) {
+                return new \WP_Error('forma_acf_value', __('En sidinställning har ett ogiltigt värde.', 'forma-editor'), ['status' => 400]);
             }
         }
         $previous_post = $_POST;
@@ -121,7 +134,7 @@ final class NavigationFields
         $revision_meta = acf_get_meta($revision) ?: [];
         if (!$revision_meta) return false;
         $parent_meta = acf_get_meta($post_id) ?: [];
-        $ignored = array_merge(self::keys(), ['_acf_changed']);
+        $ignored = array_merge(self::keys($post_id), ['_acf_changed']);
         foreach (array_unique(array_merge(array_keys($parent_meta), array_keys($revision_meta))) as $key) {
             if (!in_array($key, $ignored, true) && ($parent_meta[$key] ?? null) !== ($revision_meta[$key] ?? null)) return true;
         }

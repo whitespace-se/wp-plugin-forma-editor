@@ -120,7 +120,7 @@ final class Workflow
             return true;
         }
         foreach (wp_post_revision_meta_keys($post->post_type) as $key) {
-            if (NavigationFields::fields($post->ID) && in_array($key, array_merge(NavigationFields::keys(), ['_acf_changed']), true)) continue;
+            if (NavigationFields::fields($post->ID) && in_array($key, array_merge(NavigationFields::keys($post->ID), ['_acf_changed']), true)) continue;
             if (get_post_meta($post->ID, $key) !== get_post_meta($autosave->ID, $key)) {
                 return true;
             }

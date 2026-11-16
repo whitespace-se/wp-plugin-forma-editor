@@ -24,6 +24,7 @@ $cleanup = static function () use (&$ids, $original_user): void {
 };
 register_shutdown_function($cleanup);
 $checks = 0;
+$color_key = 'field_municipio_cloud_nora_customizations_fargtema';
 $check = static function (bool $result, string $message) use (&$checks): void {
     if (!$result) throw new RuntimeException($message);
     $checks++;
@@ -49,10 +50,15 @@ try {
         if (is_wp_error($id)) throw new RuntimeException($id->get_error_message());
         $ids[] = $id;
         $check(count(NavigationFields::fields($id)) === 3, 'Expected the three effective navigation fields');
+        $check(!array_key_exists($color_key, NavigationFields::values($id)), 'Color field is not exposed outside its ACF location');
+        update_post_meta($id, '_wp_page_template', 'one-page.blade.php');
+        $check(count(NavigationFields::fields($id)) === 4, 'One-page template exposes the color field');
         $markup = NavigationFields::markup($id);
+        $check(str_contains($markup, 'acf[' . $color_key . ']') && str_contains($markup, '>Blå</option>'), 'ACF renders the existing color select and choices');
         $check(str_contains($markup, 'acf[field_56d83d4e77786]') && str_contains($markup, 'acf[field_page_hide_secondary_menu]') && str_contains($markup, 'acf[field_56d83d2777785]'), 'Actual ACF controls render all supported fields');
         $values = NavigationFields::values($id);
         $values['field_56d83d4e77786'] = 'Published navigation';
+        $values[$color_key] = '#986706';
         acf_save_post($id, $values);
         update_metadata('post', $id, '_forma_fixture_unrelated', 'field_forma_fixture_unrelated');
         update_metadata('post', $id, 'forma_fixture_unrelated', 'Preserve this');
@@ -61,6 +67,7 @@ try {
         $values['field_56d83d4e77786'] = 'Autosaved "navigation" \\ title';
         $values['field_56d83d2777785'] = '1';
         $values['field_page_hide_secondary_menu'] = '1';
+        $values[$color_key] = '#0156B8';
         $state = $call($id, 'autosave', $values);
         $source = wp_get_post_autosave($id, get_current_user_id());
         if ($single_draft_request) {
@@ -73,6 +80,7 @@ try {
         if ($case !== 'draft') {
             $check((bool) $source, 'Metadata-only autosave must exist');
             $check(get_post_meta($id, 'custom_menu_title', true) === 'Published navigation', 'Published parent must not change');
+            $check(nora_get_effective_fargtema($id) === '#986706', 'Public color remains unchanged after autosave');
             $check(get_post_meta($source->ID, 'forma_fixture_unrelated', true) === 'Preserve this', 'Autosave must preserve unrelated ACF metadata');
             $check((array) $state['autosave']['navigation'] === $values, 'Autosave roundtrip including quotes and slashes');
             $open = $call($id, 'open');
@@ -81,6 +89,7 @@ try {
             $call($id, 'discard');
             $check(!wp_get_post_autosave($id, get_current_user_id()), 'Discard removes autosave');
             $check(get_post_meta($id, 'custom_menu_title', true) === 'Published navigation', 'Discard preserves parent');
+            $check(nora_get_effective_fargtema($id) === '#986706', 'Discard preserves public color');
             $call($id, 'autosave', $values);
         } else {
             $check(!$source, 'Own draft uses core parent save');
@@ -88,15 +97,18 @@ try {
         }
         $state = $call($id, 'publish');
         $check($state['status'] === 'publish' && (array) $state['navigation'] === $values, 'Publishing carries supported ACF fields');
+        $check(nora_get_effective_fargtema($id) === '#0156B8', 'Publishing updates the color consumed by Nora');
         $check(get_post_meta($id, 'forma_fixture_unrelated', true) === 'Preserve this', 'Publishing preserves unrelated fields');
         $revisions = wp_get_post_revisions($id);
         $saved = reset($revisions);
         $check(get_post_meta($saved->ID, 'custom_menu_title', true) === $values['field_56d83d4e77786'], 'Final revision contains ACF values');
         $values['field_56d83d4e77786'] = 'Next revision';
+        $values[$color_key] = '#A24D6F';
         $call($id, 'autosave', $values);
         $call($id, 'publish');
         wp_restore_post_revision($saved->ID);
         $check(get_post_meta($id, 'custom_menu_title', true) === 'Autosaved "navigation" \\ title', 'Core revision restore restores ACF values');
+        $check(nora_get_effective_fargtema($id) === '#0156B8', 'Core revision restore restores color');
         $check(get_post_meta($id, 'forma_fixture_unrelated', true) === 'Preserve this', 'Core restore preserves unrelated ACF');
         $state = $call($id, 'draft');
         $check($state['status'] === 'draft', 'Change to draft retains workflow');
@@ -126,6 +138,15 @@ try {
     $check(is_wp_error(NavigationFields::validate($id, $values + ['field_unexpected' => 'x'])), 'Unknown fields rejected');
     $check(is_wp_error(NavigationFields::validate($id, ['field_56d83d4e77786' => 'Only one field'])), 'Incomplete payload rejected');
     $values = NavigationFields::values($id);
+    $color_only = $values;
+    $color_only[$color_key] = '#047F90';
+    $color_state = $call($id, 'autosave', $color_only);
+    $check($color_state['autosave']['title'] === get_post($id)->post_title && ((array) $color_state['autosave']['navigation'])[$color_key] === '#047F90', 'Color-only edit creates an autosave without changing title');
+    $check(str_contains($color_state['previewUrl'], 'preview_nonce='), 'Color-only edit gets a revision preview');
+    $call($id, 'discard');
+    $invalid_color = $values;
+    $invalid_color[$color_key] = '#not-a-choice';
+    $check(is_wp_error(NavigationFields::validate($id, $invalid_color)), 'Color values must match the actual ACF choices');
     $request = new WP_REST_Request('POST', '/forma/v1/posts/' . $id . '/workflow');
     $request->set_body_params(['id' => $id, 'operation' => 'autosave', 'title' => get_post($id)->post_title, 'navigation' => $values + ['field_unexpected' => 'x']]);
     $check(is_wp_error(Workflow::handle($request)), 'Workflow rejects unknown fields before any write');
@@ -149,6 +170,7 @@ try {
     $values['field_56d83d4e77786'] = 'Preview navigation';
     $values['field_56d83d2777785'] = '0';
     $values['field_page_hide_secondary_menu'] = '0';
+    $values[$color_key] = '#009844';
     $call($id, 'autosave', $values);
     $own_revision = wp_get_post_autosave($id, get_current_user_id());
     // A later ordinary revision must not replace the user's preview values.
@@ -164,10 +186,12 @@ try {
     remove_filter('acf/revisions/skip_legacy_metabox_handling', '__return_true');
     acf_copy_metadata($id, $other_revision);
     update_metadata('post', $other_revision, 'custom_menu_title', 'Another editor private draft');
+    update_metadata('post', $other_revision, 'field_fargtema', '#A24D6F');
     wp_set_current_user($user_id);
     $GLOBALS['post'] = _set_preview(clone get_post($id));
     $GLOBALS['wp_query']->queried_object = get_post($id);
     $GLOBALS['wp_query']->queried_object_id = $id;
+    $GLOBALS['wp_query']->is_page = true;
     $_GET = ['forma-preview' => (string) $id, '_forma_nonce' => wp_create_nonce('forma-preview-' . $id), 'preview_id' => (string) $id, 'preview_nonce' => 'invalid', 'preview' => 'true'];
     $key_before = apply_filters('Municipio/Navigation/Cache/Key', 'hide_in_menu');
     $cache_before = wp_cache_get($key_before);
@@ -179,6 +203,16 @@ try {
     acf()->revisions->cache = [];
     $check(get_field('custom_menu_title', $id) === 'Preview navigation', 'ACF previews own autosave rather than latest revision: ' . wp_json_encode(['value' => get_field('custom_menu_title', $id), 'revision' => $own_revision->ID, 'raw' => get_post_meta($own_revision->ID, 'custom_menu_title', true), 'resolved' => acf_get_valid_post_id($id), 'has_meta' => (bool) acf_get_meta($own_revision->ID)]));
     $check(get_post_meta($id, 'custom_menu_title', true) === 'Preview navigation', 'Core metadata preview cannot use another user autosave');
+    $check(nora_get_effective_fargtema($id) === '#009844', 'Real Nora color resolver uses current user autosave');
+    $check(get_post_meta($id)['field_fargtema'][0] === '#0156B8', 'Preview color leaves stored public value unchanged');
+    ob_start();
+    foreach ($GLOBALS['wp_filter']['wp_head']->callbacks[20] ?? [] as $callback) {
+        if ($callback['function'] instanceof Closure && str_ends_with((new ReflectionFunction($callback['function']))->getFileName(), '/includes/color-themes.php')) {
+            $callback['function']();
+        }
+    }
+    $color_css = ob_get_clean();
+    $check(str_contains($color_css, '--color-custom: #009844;'), 'Nora emits preview color in its real page CSS');
     $check(!get_field('page_hide_secondary_menu', $id), 'Secondary navigation uses preview value');
     $check(!in_array($id, Municipio\Controller\Navigation\Helper\GetHiddenPostIds::getHiddenPostIds()), 'Real Municipio hidden-page helper uses preview value');
     $menu = new class($id) implements Municipio\Controller\Navigation\MenuInterface {
