@@ -3,10 +3,12 @@ import React, { useLayoutEffect, useRef, useState } from "react";
 interface AcfWindow {
   acf: {
     doAction: (action: string, element: unknown) => void;
-    getField: (
-      key: string,
-    ) =>
-      | { showError: (message: string) => void; removeError: () => void }
+    getField: (key: string) =>
+      | {
+          setValue: (value: string) => void;
+          showError: (message: string) => void;
+          removeError: () => void;
+        }
       | false
       | undefined;
     unload: {
@@ -66,6 +68,13 @@ export function NavigationFields({
     }
     const element = jquery(node);
     acf.doAction("append", element);
+    // The PHP markup carries the saved switch's visual state. Setting checked
+    // before append lets conditional logic see the resumed values, but ACF's
+    // true_false initializer only measures the switch; its setter syncs the UI.
+    for (const [key, value] of Object.entries(initialValues)) {
+      const field = acf.getField(key);
+      if (field) field.setValue(value);
+    }
     // Forma owns the shared autosave/leave warning, including ACF changes.
     const unloadActive = acf.unload.active;
     acf.unload.reset();
