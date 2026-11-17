@@ -103,7 +103,6 @@ export function Editor({
   const [resizing, setResizing] = useState(false);
   const [contentVersion, setContentVersion] = useState(0);
   const [state, setState] = useState<WorkflowState>();
-  const [resumed, setResumed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [lockError, setLockError] = useState(false);
@@ -238,12 +237,10 @@ export function Editor({
         const resume = Boolean(
           next.autosave && !next.autosave.otherChanges && !next.lockOwner,
         );
-        setResumed(resume && !pending);
         if (!pending) createQueue(resume ? next.autosave! : next);
         else if (!next.lockOwner && !next.autosave?.otherChanges)
           queue.current?.retry();
       } else {
-        setResumed(false);
         createQueue(next.autosave ?? next);
       }
       if (next.lockOwner && queue.current) queue.current.paused = true;
@@ -460,17 +457,6 @@ export function Editor({
             </h1>
           </header>
           <div className="forma-editor__actions" ref={setActionsTarget} />
-          {resumed && !state?.autosave?.otherChanges && !state?.lockOwner && (
-            <div className="notice notice-info inline is-dismissible forma-editor__restore">
-              <p>{labels.resumedNotice}</p>
-              <button
-                type="button"
-                className="notice-dismiss"
-                aria-label={labels.dismissNotice}
-                onClick={() => setResumed(false)}
-              />
-            </div>
-          )}
           {state?.autosave?.otherChanges && !state.lockOwner && (
             <div className="notice notice-warning inline forma-editor__restore">
               <p id="forma-autosave-blocked">{labels.otherChanges}</p>

@@ -52,7 +52,6 @@ export function PublishControls({
       {actionsTarget &&
         createPortal(
           <>
-            <span role="status">{saveStatus}</span>
             {canPublish && (
               <button
                 type="button"
@@ -78,6 +77,17 @@ export function PublishControls({
                   : status === "publish"
                     ? labels.update
                     : labels.publish}
+              </button>
+            )}
+            <span role="status">{saveStatus}</span>
+            {hasAutosave && (
+              <button
+                type="button"
+                className="button-link button-link-delete"
+                disabled={discardDisabled}
+                onClick={discard}
+              >
+                {labels.discard}
               </button>
             )}
           </>,
@@ -164,18 +174,6 @@ export function PublishControls({
             <div className="misc-pub-section">
               <span className="dashicons dashicons-backup" aria-hidden="true" />{" "}
               <a href={revisionUrl}>{labels.revisions}</a>
-            </div>
-          )}
-          {hasAutosave && (
-            <div className="misc-pub-section">
-              <button
-                type="button"
-                className="button-link button-link-delete"
-                disabled={discardDisabled}
-                onClick={discard}
-              >
-                {labels.discard}
-              </button>
             </div>
           )}
         </div>
