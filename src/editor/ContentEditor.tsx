@@ -35,6 +35,7 @@ interface CoreEditor {
  * selection or undo stack. A new working version remounts the island. */
 export function ContentEditor({
   markup,
+  wpautop,
   initialContent,
   disabled,
   label,
@@ -43,6 +44,7 @@ export function ContentEditor({
   onLeave,
 }: {
   markup: string;
+  wpautop: boolean;
   initialContent: string;
   disabled: boolean;
   label: string;
@@ -147,6 +149,7 @@ export function ContentEditor({
           ((editor: TinyEditor) => void) | undefined;
         const config = {
           ...settings,
+          wpautop,
           id,
           wp_skip_init: false,
           selector: `#${id}`,

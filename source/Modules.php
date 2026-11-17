@@ -62,7 +62,10 @@ final class Modules
                 && in_array($module, self::ids((int) $page), true)) $used[(int) $page] = true;
         }
         if (class_exists('Modularity\\Helper\\ModuleUsageById')) {
-            foreach (\Modularity\Helper\ModuleUsageById::getModuleUsageById($module) as $page) $used[(int) $page->post_id] = true;
+            foreach (\Modularity\Helper\ModuleUsageById::getModuleUsageById($module) as $page) {
+                $post = get_post((int) $page->post_id);
+                if ($post && !in_array($post->post_status, ['trash', 'auto-draft', 'inherit'], true)) $used[$post->ID] = true;
+            }
         }
         return count($used);
     }

@@ -2,7 +2,8 @@ import React, { type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import "./layout.css";
 import { apiFetch } from "../wordpress/api";
-import { Editor, type EditorConfig } from "./Editor";
+import { type EditorConfig } from "./Editor";
+import { Workspace } from "./Workspace";
 
 /** The WordPress screen will own the container; reusable UI receives its data as props. */
 export function mountEditor(container: HTMLElement, content: ReactNode) {
@@ -17,8 +18,7 @@ export function start(config: EditorConfig & { nonce: string }) {
 
   apiFetch.use(apiFetch.createNonceMiddleware(config.nonce));
   // Core prints TinyMCE configuration in the footer, after our bundle.
-  const mount = () =>
-    mountEditor(container, <Editor key={config.postId} {...config} />);
+  const mount = () => mountEditor(container, <Workspace initial={config} />);
   if (document.readyState === "loading")
     document.addEventListener("DOMContentLoaded", mount, { once: true });
   else mount();

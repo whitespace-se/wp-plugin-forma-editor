@@ -10,12 +10,14 @@ import { Autosave } from "./Autosave";
 import { observePostLock } from "../wordpress/locks";
 import { LockDialog } from "./LockDialog";
 import { ContentEditor } from "./ContentEditor";
-import { PanelResize } from "./PanelResize";
 import { PublishControls } from "./PublishControls";
 import { NavigationFields } from "./NavigationFields";
 
 export interface EditorConfig {
   postId: number;
+  pageId: number;
+  contextPath: string;
+  wpautop: boolean;
   editorMarkup: string;
   navigationMarkup?: string;
   workflowPath: string;
@@ -27,8 +29,13 @@ export interface EditorConfig {
   labels: Record<string, string>;
   modules?: { id: number; title: string; type: string; url: string | null }[];
   parentUrl?: string | null;
-  moduleTitle?: string | null;
   moduleUsage?: number;
+}
+
+export interface SessionProps {
+  initialSection?: string | null;
+  onPreview: (url: string) => void;
+  onSwitch: (module: number, section: string | null) => Promise<void>;
 }
 
 export function Editor({
@@ -44,11 +51,14 @@ export function Editor({
   labels,
   modules = [],
   parentUrl,
-  moduleTitle,
+  wpautop,
   moduleUsage = 0,
-}: EditorConfig) {
+  initialSection,
+  onPreview,
+  onSwitch,
+}: EditorConfig & SessionProps) {
   const [section, setSection] = useState<string | null>(
-    parentUrl ? "content" : null,
+    parentUrl ? "content" : (initialSection ?? null),
   );
   const [contentOpened, setContentOpened] = useState(Boolean(parentUrl));
   const [navigationOpened, setNavigationOpened] = useState(false);
@@ -96,7 +106,6 @@ export function Editor({
         .querySelector<HTMLElement>(`[data-section="${lastSection.current}"]`)
         ?.focus({ preventScroll: true });
   }, [section]);
-  const [panelWidth, setPanelWidth] = useState(420);
   const panelTop = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const top = panelTop.current!;
@@ -112,14 +121,12 @@ export function Editor({
     observer.observe(top);
     return () => observer.disconnect();
   }, []);
-  const [resizing, setResizing] = useState(false);
   const [contentVersion, setContentVersion] = useState(0);
   const [state, setState] = useState<WorkflowState>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [lockError, setLockError] = useState(false);
   const [lostLock, setLostLock] = useState(false);
-  const [preview, setPreview] = useState({ url: previewUrl, version: 0 });
   const [, redraw] = useState(0);
   const queue = useRef<Autosave<WorkflowState>>();
   const current = useRef<WorkflowState>();
@@ -141,7 +148,7 @@ export function Editor({
     if (refresh) {
       previewDirty.current = false;
       previewRequest.current++;
-      setPreview((old) => ({ url: next.previewUrl, version: old.version + 1 }));
+      onPreview(next.previewUrl);
     }
   }
 
@@ -199,10 +206,7 @@ export function Editor({
         current.current
       ) {
         previewDirty.current = false;
-        setPreview((old) => ({
-          url: current.current!.previewUrl,
-          version: old.version + 1,
-        }));
+        onPreview(current.current!.previewUrl);
       }
     } catch {
       /* The autosave status already shows the failure; keep the old preview. */
@@ -223,6 +227,24 @@ export function Editor({
         _wpnonce: lockNonce,
       }),
     );
+  }
+
+  async function switchObject(module: number, section: string | null) {
+    if (acting.current) return;
+    acting.current = true;
+    setBusy(true);
+    setError("");
+    previewRequest.current++;
+    try {
+      await queue.current?.flush();
+      await onSwitch(module, section);
+      release();
+    } catch (failure) {
+      setError((failure as Error).message || labels.connectionError);
+    } finally {
+      acting.current = false;
+      if (mounted.current) setBusy(false);
+    }
   }
 
   async function act(operation: string) {
@@ -421,24 +443,7 @@ export function Editor({
     Boolean(state.lockOwner) ||
     Boolean(state.autosave?.otherChanges);
   return (
-    <div
-      className={`forma-editor__workspace${resizing ? " forma-editor__workspace--resizing" : ""}`}
-      style={{
-        gridTemplateColumns: `minmax(0, 1fr) min(${panelWidth}px, 90vw)`,
-      }}
-    >
-      <iframe
-        key={preview.version}
-        className="forma-editor__preview"
-        src={preview.url}
-        title={labels.preview}
-      />
-      <PanelResize
-        width={panelWidth}
-        label={labels.panelWidth}
-        onChange={setPanelWidth}
-        onDragging={setResizing}
-      />
+    <>
       <aside
         ref={panelRef}
         id="forma-panel"
@@ -451,10 +456,26 @@ export function Editor({
               {labels.context}:{" "}
               {parentUrl ? (
                 <>
-                  <a href={parentUrl}>{labels.modulePage}</a>
+                  <button
+                    type="button"
+                    className="button-link"
+                    disabled={busy}
+                    onClick={() => void switchObject(0, null)}
+                  >
+                    {labels.modulePage}
+                  </button>
+                  <span aria-hidden="true"> › </span>
+                  <button
+                    type="button"
+                    className="button-link"
+                    disabled={busy}
+                    onClick={() => void switchObject(0, "modules")}
+                  >
+                    {labels.modules}
+                  </button>
                   <span aria-hidden="true"> › </span>
                   <span id="forma-current-section" tabIndex={-1}>
-                    {labels.heading}: {input.title || moduleTitle}
+                    {labels.heading}
                   </span>
                 </>
               ) : section === null ? (
@@ -523,10 +544,15 @@ export function Editor({
         {section !== null && (
           <div className="forma-editor__back">
             {parentUrl ? (
-              <a href={parentUrl}>
+              <button
+                type="button"
+                className="button-link"
+                disabled={busy}
+                onClick={() => void switchObject(0, "modules")}
+              >
                 <span aria-hidden="true">← </span>
                 <span className="forma-editor__back-label">{labels.back}</span>
-              </a>
+              </button>
             ) : (
               <button
                 type="button"
@@ -574,10 +600,12 @@ export function Editor({
           <div className="forma-editor__section-list forma-editor__slide-in">
             {modules.map((module) =>
               module.url ? (
-                <a
+                <button
+                  type="button"
+                  disabled={busy}
                   className="accordion-section-title"
                   key={module.id}
-                  href={module.url}
+                  onClick={() => void switchObject(module.id, "content")}
                 >
                   <span>
                     {module.title}
@@ -589,7 +617,7 @@ export function Editor({
                     className="dashicons dashicons-arrow-right-alt2"
                     aria-hidden="true"
                   />
-                </a>
+                </button>
               ) : (
                 <div className="accordion-section-title" key={module.id}>
                   <span>
@@ -633,6 +661,7 @@ export function Editor({
             <ContentEditor
               key={contentVersion}
               markup={editorMarkup}
+              wpautop={wpautop}
               initialContent={input.content}
               disabled={disabled}
               label={labels.content}
@@ -714,6 +743,6 @@ export function Editor({
         labels={labels}
         takeover={() => void act("takeover")}
       />
-    </div>
+    </>
   );
 }

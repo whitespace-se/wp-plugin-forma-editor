@@ -39,6 +39,7 @@ if (!class_exists(Workflow::class)) {
     require_once __DIR__ . '/source/Workflow.php';
 }
 add_action('rest_api_init', [Workflow::class, 'register']);
+add_action('rest_api_init', [Plugin::class, 'register_context']);
 require_once __DIR__ . '/source/Modules.php';
 // Modularity collects its posts on wp; install the preview overlay first.
 add_action('wp', [Modules::class, 'prepare_preview'], -100);

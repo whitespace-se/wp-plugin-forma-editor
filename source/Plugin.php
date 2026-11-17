@@ -114,16 +114,19 @@ final class Plugin
             'media_buttons' => true,
         ]);
         $editor_markup = ob_get_clean();
-        $navigation_markup = NavigationFields::markup($post->ID);
+        // Load the page's ACF assets even when entering through a module URL.
+        $navigation_markup = NavigationFields::markup($page->ID);
         wp_enqueue_script('forma-editor');
         wp_enqueue_style('forma-editor');
         wp_add_inline_script('forma-editor', 'FormaEditor.start(' . wp_json_encode([
             'postId' => $post->ID,
+            'pageId' => $page->ID,
+            'contextPath' => '/forma/v1/pages/' . $page->ID . '/editor-context',
+            'wpautop' => !has_blocks($post),
             'editorMarkup' => $editor_markup,
             'navigationMarkup' => $navigation_markup,
             'modules' => $module ? [] : Modules::items($page->ID),
             'parentUrl' => $module ? self::editor_url($page) : null,
-            'moduleTitle' => $module ? $post->post_title : null,
             'moduleUsage' => $module ? Modules::usage($module) : 0,
             'classicUrl' => self::classic_url($post),
             'returnUrl' => admin_url('edit.php?post_type=' . $post->post_type),
@@ -185,6 +188,38 @@ final class Plugin
                 'authError' => __('Din inloggning eller behörighet kunde inte verifieras. Kopiera din ändring innan du laddar om sidan eller loggar in igen.', 'forma-editor'),
             ],
         ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) . ');');
+    }
+
+    public static function register_context(): void
+    {
+        register_rest_route('forma/v1', '/pages/(?P<id>\d+)/editor-context', [
+            'methods' => 'GET',
+            'permission_callback' => static fn($r): bool => self::supported_post(get_post((int) $r['id'])) && self::can_open(get_post((int) $r['id'])),
+            'callback' => [self::class, 'editor_context'],
+        ]);
+    }
+
+    public static function editor_context(\WP_REST_Request $request)
+    {
+        $page = get_post((int) $request['id']);
+        $module = absint($request['module'] ?? 0);
+        if (!self::supported_post($page) || !self::can_open($page)
+            || ($module && !Modules::allowed($page->ID, $module))) {
+            return new \WP_Error('forma_context', __('Posten kan inte redigeras.', 'forma-editor'), ['status' => 403]);
+        }
+        $post = $module ? get_post($module) : $page;
+        return [
+            'postId' => $post->ID,
+            'parentUrl' => $module ? self::editor_url($page) : null,
+            'modules' => $module ? [] : Modules::items($page->ID),
+            'moduleUsage' => $module ? Modules::usage($module) : 0,
+            'heading' => get_post_type_object($post->post_type)->labels->singular_name,
+            'classicUrl' => self::classic_url($post),
+            'returnUrl' => admin_url('edit.php?post_type=' . $post->post_type),
+            'workflowPath' => '/forma/v1/posts/' . $post->ID . '/workflow' . ($module ? '?context=' . $page->ID : ''),
+            'lockNonce' => wp_create_nonce('update-post_' . $post->ID),
+            'wpautop' => !has_blocks($post),
+        ];
     }
 
     public static function render_screen(): void
