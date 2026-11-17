@@ -507,11 +507,8 @@ export function Editor({
               className="button-link"
               onClick={() => navigate(null)}
             >
-              <span
-                className="dashicons dashicons-arrow-left-alt2"
-                aria-hidden="true"
-              />
-              {labels.back}
+              <span aria-hidden="true">← </span>
+              <span className="forma-editor__back-label">{labels.back}</span>
             </button>
           </div>
         )}

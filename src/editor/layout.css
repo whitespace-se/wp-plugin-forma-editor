@@ -77,9 +77,11 @@ body.forma-editor-screen.mce-fullscreen .forma-editor__workspace {
 }
 
 .forma-editor__back .button-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+  font: inherit;
+  text-decoration: none;
+}
+
+.forma-editor__back-label {
   text-decoration: underline;
 }
 
