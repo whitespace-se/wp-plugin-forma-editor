@@ -130,6 +130,7 @@ final class Plugin
                 'heading' => get_post_type_object($post->post_type)->labels->singular_name,
                 'title' => __('Titel', 'forma-editor'),
                 'content' => __('Content'),
+                'mainContent' => __('Huvudinnehåll', 'forma-editor'),
                 'navigation' => __('Sidinställningar', 'forma-editor'),
                 'navigationError' => __('Sidinställningarna kunde inte startas. Ladda om eller öppna klassiska editorn.', 'forma-editor'),
                 'panelWidth' => __('Panelbredd', 'forma-editor'),

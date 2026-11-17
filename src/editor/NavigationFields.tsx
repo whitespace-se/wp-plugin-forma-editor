@@ -26,6 +26,7 @@ interface AcfWindow {
 
 /** ACF owns this DOM subtree; React owns only its lifetime and lock boundary. */
 export function NavigationFields({
+  activeGroup,
   markup,
   initialValues,
   disabled,
@@ -35,6 +36,7 @@ export function NavigationFields({
   onChange,
   onLeave,
 }: {
+  activeGroup?: string | null;
   markup: string;
   initialValues: Record<string, string>;
   disabled: boolean;
@@ -101,6 +103,16 @@ export function NavigationFields({
       node.replaceChildren();
     };
   }, []);
+  useLayoutEffect(() => {
+    // Keep ACF instances and values alive when navigating between groups.
+    const groups = host.current?.querySelectorAll<HTMLElement>(
+      ".forma-editor__acf-group",
+    );
+    groups?.forEach((group, index) => {
+      group.hidden = activeGroup != null && String(index) !== activeGroup;
+      group.classList.add("forma-editor__slide-in");
+    });
+  });
   useLayoutEffect(() => {
     const acf = (window as unknown as AcfWindow).acf;
     if (!acf) return;

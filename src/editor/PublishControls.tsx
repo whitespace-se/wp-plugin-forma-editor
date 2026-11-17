@@ -1,7 +1,8 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 export function PublishControls({
+  hidden = false,
   status,
   changed,
   disabled,
@@ -15,6 +16,7 @@ export function PublishControls({
   commit,
   discard,
 }: {
+  hidden?: boolean;
   status: "draft" | "publish";
   changed: boolean;
   disabled: boolean;
@@ -32,6 +34,9 @@ export function PublishControls({
     "publish" | "draft" | null
   >(null);
   const [editing, setEditing] = useState(false);
+  useEffect(() => {
+    if (hidden) setEditing(false);
+  }, [hidden]);
   const [pendingStatus, setPendingStatus] = useState(status);
   const editButton = useRef<HTMLButtonElement>(null);
   const operation = selectedStatus ?? "publish";
@@ -79,6 +84,7 @@ export function PublishControls({
           actionsTarget,
         )}
       <section
+        hidden={hidden}
         className="forma-editor__publish-section"
         aria-labelledby="forma-publish-heading"
       >

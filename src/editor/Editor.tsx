@@ -1,4 +1,10 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { workflow, type WorkflowState } from "../wordpress/api";
 import { Autosave } from "./Autosave";
 import { observePostLock } from "../wordpress/locks";
@@ -33,6 +39,51 @@ export function Editor({
   classicUrl,
   labels,
 }: EditorConfig) {
+  const [section, setSection] = useState<string | null>(null);
+  const [contentOpened, setContentOpened] = useState(false);
+  const [navigationOpened, setNavigationOpened] = useState(false);
+  const panelRef = useRef<HTMLElement>(null);
+  const lastSection = useRef<string | null>(null);
+  const sections = useMemo(() => {
+    const document = new DOMParser().parseFromString(
+      navigationMarkup ?? "",
+      "text/html",
+    );
+    return Array.from(
+      document.querySelectorAll(".forma-editor__acf-group"),
+      (group, index) => ({
+        id: String(index),
+        label: group.querySelector("legend")?.textContent ?? labels.navigation,
+        fields: Array.from(group.querySelectorAll("[data-key]"), (field) =>
+          field.getAttribute("data-key"),
+        ),
+      }),
+    );
+  }, [navigationMarkup, labels.navigation]);
+  const sectionLabel =
+    section === "content"
+      ? labels.mainContent
+      : sections.find((item) => item.id === section)?.label;
+  function navigate(next: string | null) {
+    lastSection.current = section;
+    if (next === "content") setContentOpened(true);
+    else if (next !== null) setNavigationOpened(true);
+    setSection(next);
+    void refreshPreview();
+  }
+  useLayoutEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+    panel.scrollTop = 0;
+    if (section !== null)
+      panel
+        .querySelector<HTMLElement>("#forma-current-section")
+        ?.focus({ preventScroll: true });
+    else if (lastSection.current !== null)
+      panel
+        .querySelector<HTMLElement>(`[data-section="${lastSection.current}"]`)
+        ?.focus({ preventScroll: true });
+  }, [section]);
   const [panelWidth, setPanelWidth] = useState(420);
   const panelTop = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -380,11 +431,34 @@ export function Editor({
         onDragging={setResizing}
       />
       <aside
+        ref={panelRef}
         id="forma-panel"
         className="forma-editor__panel"
         aria-labelledby="forma-heading"
       >
         <div className="forma-editor__panel-top" ref={panelTop}>
+          <header className="forma-editor__panel-header">
+            <h1 id="forma-heading">
+              {labels.context}:{" "}
+              {section === null ? (
+                labels.heading
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="button-link"
+                    onClick={() => navigate(null)}
+                  >
+                    {labels.heading}
+                  </button>
+                  <span aria-hidden="true"> › </span>
+                  <span id="forma-current-section" tabIndex={-1}>
+                    {sectionLabel}
+                  </span>
+                </>
+              )}
+            </h1>
+          </header>
           <div className="forma-editor__actions" ref={setActionsTarget} />
           {resumed && !state?.autosave?.otherChanges && !state?.lockOwner && (
             <div className="notice notice-info inline is-dismissible forma-editor__restore">
@@ -405,13 +479,10 @@ export function Editor({
               </p>
             </div>
           )}
-          <header className="forma-editor__panel-header">
-            <p>{labels.context}</p>
-            <h1 id="forma-heading">{labels.heading}</h1>
-          </header>
         </div>
         {state ? (
           <PublishControls
+            hidden={section !== null}
             key={state.status}
             status={state.status}
             changed={Boolean(state.autosave || saver?.dirty)}
@@ -443,12 +514,32 @@ export function Editor({
         ) : (
           <p role="status">{labels.loading}</p>
         )}
-        <div className="forma-editor__controls">
-          {lockError && (
-            <div className="notice notice-error inline">
-              <p role="alert">{labels.lockConnectionError}</p>
-            </div>
+        <div
+          className="forma-editor__section-list forma-editor__slide-back"
+          hidden={section !== null}
+        >
+          {[{ id: "content", label: labels.mainContent }, ...sections].map(
+            (item) => (
+              <button
+                type="button"
+                key={item.id}
+                data-section={item.id}
+                className="accordion-section-title"
+                onClick={() => navigate(item.id)}
+              >
+                {item.label}
+                <span
+                  className="dashicons dashicons-arrow-right-alt2"
+                  aria-hidden="true"
+                />
+              </button>
+            ),
           )}
+        </div>
+        <div
+          className="forma-editor__controls forma-editor__slide-in"
+          hidden={section !== "content"}
+        >
           <label htmlFor="forma-title">{labels.title}</label>
           <input
             id="forma-title"
@@ -471,7 +562,7 @@ export function Editor({
               }
             }}
           />
-          {state && saver && (
+          {contentOpened && state && saver && (
             <ContentEditor
               key={contentVersion}
               markup={editorMarkup}
@@ -483,42 +574,64 @@ export function Editor({
               onLeave={() => void refreshPreview()}
             />
           )}
-          {(error || saveError) && (
-            <div role="alert">
-              <p>
-                {error ||
-                  (authError ? labels.authError : saveError?.message) ||
-                  labels.connectionError}
-              </p>
-              <button
-                className="button"
-                disabled={busy}
-                onClick={() => {
-                  setError("");
-                  if (failedOperation.current)
-                    void act(failedOperation.current);
-                  else if (!state) void act("open");
-                  else saver?.retry();
-                }}
-              >
-                {labels.retry}
-              </button>
-            </div>
+        </div>
+        {(lockError || error || saveError) && (
+          <div role="alert" className="notice notice-error inline">
+            <p>
+              {error ||
+                (lockError ? labels.lockConnectionError : "") ||
+                (authError ? labels.authError : saveError?.message) ||
+                labels.connectionError}
+            </p>
+            {saveError?.data?.fields?.map((field) => {
+              const key = /^acf\[([^\]]+)\]$/.exec(field.input)?.[1];
+              const target = sections.find((item) =>
+                item.fields.includes(key ?? ""),
+              );
+              return (
+                target && (
+                  <p key={field.input}>
+                    <button
+                      type="button"
+                      className="button-link"
+                      onClick={() => navigate(target.id)}
+                    >
+                      {target.label}: {field.message}
+                    </button>
+                  </p>
+                )
+              );
+            })}
+            <button
+              className="button"
+              disabled={busy}
+              onClick={() => {
+                setError("");
+                if (failedOperation.current) void act(failedOperation.current);
+                else if (!state) void act("open");
+                else saver?.retry();
+              }}
+            >
+              {labels.retry}
+            </button>
+          </div>
+        )}
+        <div hidden={section === null || section === "content"}>
+          {navigationOpened && navigationMarkup && state && saver && (
+            <NavigationFields
+              activeGroup={section}
+              key={contentVersion}
+              markup={navigationMarkup}
+              initialValues={input.navigation}
+              disabled={disabled}
+              label={labels.navigation}
+              errorLabel={labels.navigationError}
+              errors={saveError?.data?.fields}
+              onChange={(value) => editField("navigation", value)}
+              onLeave={() => void refreshPreview()}
+            />
           )}
         </div>
-        {navigationMarkup && state && saver && (
-          <NavigationFields
-            key={contentVersion}
-            markup={navigationMarkup}
-            initialValues={input.navigation}
-            disabled={disabled}
-            label={labels.navigation}
-            errorLabel={labels.navigationError}
-            errors={saveError?.data?.fields}
-            onChange={(value) => editField("navigation", value)}
-            onLeave={() => void refreshPreview()}
-          />
-        )}
       </aside>
       <LockDialog
         owner={state?.lockOwner ?? null}
