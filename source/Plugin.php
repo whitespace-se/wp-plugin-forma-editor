@@ -26,7 +26,7 @@ final class Plugin
 
     public static function can_open(?\WP_Post $post): bool
     {
-        return self::supported_post($post) && current_user_can('edit_post', $post->ID);
+        return (self::supported_post($post) || (class_exists(Modules::class) && Modules::supported($post))) && current_user_can('edit_post', $post->ID);
     }
 
     public static function request_post_id(string $key): int
@@ -73,7 +73,8 @@ final class Plugin
     {
         $id = self::request_post_id('post');
         $post = $id > 0 ? get_post($id) : null;
-        if (!self::can_open($post)) {
+        $module = self::request_post_id('module');
+        if (!self::supported_post($post) || !self::can_open($post) || ($module && !Modules::allowed($id, $module))) {
             wp_die(esc_html__('Den här posten kan inte öppnas i Forma Editor.', 'forma-editor'), '', ['response' => 403]);
         }
 
@@ -87,8 +88,10 @@ final class Plugin
             return;
         }
 
-        $post = get_post(self::request_post_id('post'));
-        $preview = add_query_arg([
+        $page = get_post(self::request_post_id('post'));
+        $module = self::request_post_id('module');
+        $post = $module ? get_post($module) : $page;
+        $preview = $module ? Modules::preview_url($page->ID, $module, true) : add_query_arg([
             'forma-preview' => $post->ID,
             '_forma_nonce' => wp_create_nonce('forma-preview-' . $post->ID),
         ], self::view_url($post));
@@ -118,9 +121,13 @@ final class Plugin
             'postId' => $post->ID,
             'editorMarkup' => $editor_markup,
             'navigationMarkup' => $navigation_markup,
+            'modules' => $module ? [] : Modules::items($page->ID),
+            'parentUrl' => $module ? self::editor_url($page) : null,
+            'moduleTitle' => $module ? $post->post_title : null,
+            'moduleUsage' => $module ? Modules::usage($module) : 0,
             'classicUrl' => self::classic_url($post),
             'returnUrl' => admin_url('edit.php?post_type=' . $post->post_type),
-            'workflowPath' => '/forma/v1/posts/' . $post->ID . '/workflow',
+            'workflowPath' => '/forma/v1/posts/' . $post->ID . '/workflow' . ($module ? '?context=' . $page->ID : ''),
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'lockNonce' => wp_create_nonce('update-post_' . $post->ID),
             'nonce' => wp_create_nonce('wp_rest'),
@@ -131,6 +138,9 @@ final class Plugin
                 'title' => __('Titel', 'forma-editor'),
                 'content' => __('Content'),
                 'mainContent' => __('Huvudinnehåll', 'forma-editor'),
+                'modules' => __('Moduler', 'forma-editor'),
+                'moduleShared' => __('Den här modulen används på flera sidor. Publicering påverkar alla sidor där den används.', 'forma-editor'),
+                'modulePage' => get_post_type_object($page->post_type)->labels->singular_name,
                 'back' => __('Tillbaka', 'forma-editor'),
                 'navigation' => __('Sidinställningar', 'forma-editor'),
                 'navigationError' => __('Sidinställningarna kunde inte startas. Ladda om eller öppna klassiska editorn.', 'forma-editor'),
@@ -207,6 +217,9 @@ final class Plugin
             return;
         }
         $post = $forma ? get_post(self::request_post_id('post')) : get_post();
+        $context = $post;
+        if ($forma && self::request_post_id('module')) $post = get_post(self::request_post_id('module'));
+        if (!$forma && !self::supported_post($post)) return;
         if (!self::can_open($post)) {
             return;
         }
@@ -215,7 +228,7 @@ final class Plugin
             $bar->add_node([
                 'id' => 'view',
                 'title' => $post->post_status === 'draft' ? __('Förhandsgranska', 'forma-editor') : __('Visa sida', 'forma-editor'),
-                'href' => self::view_url($post),
+                'href' => self::view_url($context),
             ]);
         }
         $bar->add_node([

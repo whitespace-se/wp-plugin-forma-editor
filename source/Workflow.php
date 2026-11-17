@@ -7,6 +7,7 @@ namespace Whitespace\FormaEditor;
 /** Coordinates core autosaves and advisory post locks; never stores a Forma copy. */
 final class Workflow
 {
+    private static int $context = 0;
     public static function register(): void
     {
         register_rest_route('forma/v1', '/posts/(?P<id>\d+)/workflow', [
@@ -26,9 +27,13 @@ final class Workflow
     {
         require_once ABSPATH . 'wp-admin/includes/post.php';
         $post = get_post((int) $request['id']);
+        self::$context = (int) ($request['context'] ?? 0);
         // Also check here: internal callers must obey the same policy as HTTP.
         if (!Plugin::can_open($post)) {
             return new \WP_Error('forma_forbidden', __('Posten kan inte redigeras.', 'forma-editor'), ['status' => 403]);
+        }
+        if (Modules::supported($post) && !Modules::allowed(self::$context, $post->ID)) {
+            return new \WP_Error('forma_module_context', __('Modulen finns inte på en sida du kan redigera.', 'forma-editor'), ['status' => 403]);
         }
         $operation = $request['operation'];
         $owner = wp_check_post_lock($post->ID);
@@ -76,7 +81,8 @@ final class Workflow
                 'content' => $request['content'] ?? $source->post_content,
                 'excerpt' => $source->post_excerpt,
             ]);
-            $result = NavigationFields::save($post, $core, $navigation, true);
+            $result = Modules::supported($post) ? Modules::save($post, $core, true) : NavigationFields::save($post, $core, $navigation, true);
+            if (is_wp_error($result)) return $result;
             if ($result->is_error()) {
                 return $result;
             }
@@ -99,7 +105,8 @@ final class Workflow
                 'content' => $autosave ? $autosave->post_content : $post->post_content,
                 'status' => $operation === 'publish' ? 'publish' : 'draft',
             ]);
-            $result = NavigationFields::save($post, $core, $navigation, false);
+            $result = Modules::supported($post) ? Modules::save($post, $core, false) : NavigationFields::save($post, $core, $navigation, false);
+            if (is_wp_error($result)) return $result;
             if ($result->is_error()) {
                 return $result;
             }
@@ -161,8 +168,8 @@ final class Workflow
             'canPublish' => current_user_can(get_post_type_object($post->post_type)->cap->publish_posts),
             'lockOwner' => $owner ? get_userdata($owner)->display_name : null,
             'lock' => $owner ? null : get_post_meta($post->ID, '_edit_lock', true),
-            'previewUrl' => add_query_arg($preview_args, $url),
-            'viewUrl' => Plugin::view_url($post),
+            'previewUrl' => Modules::supported($post) ? Modules::preview_url(self::$context, $post->ID, $preview_autosave && $different) : add_query_arg($preview_args, $url),
+            'viewUrl' => Plugin::view_url(Modules::supported($post) ? get_post(self::$context) : $post),
             'revisionUrl' => $revision_url,
         ];
     }

@@ -76,9 +76,24 @@ body.forma-editor-screen.mce-fullscreen .forma-editor__workspace {
   padding: 12px 12px 0;
 }
 
-.forma-editor__back .button-link {
+.forma-editor__back .button-link,
+.forma-editor__back a {
   font: inherit;
   text-decoration: none;
+}
+
+.forma-editor__module-type {
+  display: block;
+  font-weight: 400;
+}
+
+.forma-editor__section-list a.accordion-section-title {
+  box-sizing: border-box;
+  text-decoration: none;
+}
+
+.forma-editor__section-list div.accordion-section-title {
+  cursor: default;
 }
 
 .forma-editor__back-label {

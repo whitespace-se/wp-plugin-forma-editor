@@ -25,6 +25,10 @@ export interface EditorConfig {
   returnUrl: string;
   classicUrl: string;
   labels: Record<string, string>;
+  modules?: { id: number; title: string; type: string; url: string | null }[];
+  parentUrl?: string | null;
+  moduleTitle?: string | null;
+  moduleUsage?: number;
 }
 
 export function Editor({
@@ -38,9 +42,15 @@ export function Editor({
   returnUrl,
   classicUrl,
   labels,
+  modules = [],
+  parentUrl,
+  moduleTitle,
+  moduleUsage = 0,
 }: EditorConfig) {
-  const [section, setSection] = useState<string | null>(null);
-  const [contentOpened, setContentOpened] = useState(false);
+  const [section, setSection] = useState<string | null>(
+    parentUrl ? "content" : null,
+  );
+  const [contentOpened, setContentOpened] = useState(Boolean(parentUrl));
   const [navigationOpened, setNavigationOpened] = useState(false);
   const panelRef = useRef<HTMLElement>(null);
   const lastSection = useRef<string | null>(null);
@@ -61,9 +71,11 @@ export function Editor({
     );
   }, [navigationMarkup, labels.navigation]);
   const sectionLabel =
-    section === "content"
-      ? labels.mainContent
-      : sections.find((item) => item.id === section)?.label;
+    section === "modules"
+      ? labels.modules
+      : section === "content"
+        ? labels.mainContent
+        : sections.find((item) => item.id === section)?.label;
   function navigate(next: string | null) {
     lastSection.current = section;
     if (next === "content") setContentOpened(true);
@@ -437,7 +449,15 @@ export function Editor({
           <header className="forma-editor__panel-header">
             <h1 id="forma-heading">
               {labels.context}:{" "}
-              {section === null ? (
+              {parentUrl ? (
+                <>
+                  <a href={parentUrl}>{labels.modulePage}</a>
+                  <span aria-hidden="true"> › </span>
+                  <span id="forma-current-section" tabIndex={-1}>
+                    {labels.heading}: {input.title || moduleTitle}
+                  </span>
+                </>
+              ) : section === null ? (
                 labels.heading
               ) : (
                 <>
@@ -468,7 +488,7 @@ export function Editor({
         </div>
         {state ? (
           <PublishControls
-            hidden={section !== null}
+            hidden={!parentUrl && section !== null}
             key={state.status}
             status={state.status}
             changed={Boolean(state.autosave || saver?.dirty)}
@@ -502,38 +522,87 @@ export function Editor({
         )}
         {section !== null && (
           <div className="forma-editor__back">
-            <button
-              type="button"
-              className="button-link"
-              onClick={() => navigate(null)}
-            >
-              <span aria-hidden="true">← </span>
-              <span className="forma-editor__back-label">{labels.back}</span>
-            </button>
+            {parentUrl ? (
+              <a href={parentUrl}>
+                <span aria-hidden="true">← </span>
+                <span className="forma-editor__back-label">{labels.back}</span>
+              </a>
+            ) : (
+              <button
+                type="button"
+                className="button-link"
+                onClick={() => navigate(null)}
+              >
+                <span aria-hidden="true">← </span>
+                <span className="forma-editor__back-label">{labels.back}</span>
+              </button>
+            )}
+          </div>
+        )}
+        {parentUrl && moduleUsage > 1 && (
+          <div className="notice notice-info inline">
+            <p>{labels.moduleShared}</p>
           </div>
         )}
         <div
           className="forma-editor__section-list forma-editor__slide-back"
           hidden={section !== null}
         >
-          {[{ id: "content", label: labels.mainContent }, ...sections].map(
-            (item) => (
-              <button
-                type="button"
-                key={item.id}
-                data-section={item.id}
-                className="accordion-section-title"
-                onClick={() => navigate(item.id)}
-              >
-                {item.label}
-                <span
-                  className="dashicons dashicons-arrow-right-alt2"
-                  aria-hidden="true"
-                />
-              </button>
-            ),
-          )}
+          {[
+            { id: "content", label: labels.mainContent },
+            ...sections,
+            ...(modules.length
+              ? [{ id: "modules", label: labels.modules }]
+              : []),
+          ].map((item) => (
+            <button
+              type="button"
+              key={item.id}
+              data-section={item.id}
+              className="accordion-section-title"
+              onClick={() => navigate(item.id)}
+            >
+              {item.label}
+              <span
+                className="dashicons dashicons-arrow-right-alt2"
+                aria-hidden="true"
+              />
+            </button>
+          ))}
         </div>
+        {section === "modules" && (
+          <div className="forma-editor__section-list forma-editor__slide-in">
+            {modules.map((module) =>
+              module.url ? (
+                <a
+                  className="accordion-section-title"
+                  key={module.id}
+                  href={module.url}
+                >
+                  <span>
+                    {module.title}
+                    <small className="forma-editor__module-type">
+                      {module.type}
+                    </small>
+                  </span>
+                  <span
+                    className="dashicons dashicons-arrow-right-alt2"
+                    aria-hidden="true"
+                  />
+                </a>
+              ) : (
+                <div className="accordion-section-title" key={module.id}>
+                  <span>
+                    {module.title}
+                    <small className="forma-editor__module-type">
+                      {module.type}
+                    </small>
+                  </span>
+                </div>
+              ),
+            )}
+          </div>
+        )}
         <div
           className="forma-editor__controls forma-editor__slide-in"
           hidden={section !== "content"}
@@ -614,7 +683,11 @@ export function Editor({
             </button>
           </div>
         )}
-        <div hidden={section === null || section === "content"}>
+        <div
+          hidden={
+            section === null || section === "content" || section === "modules"
+          }
+        >
           {navigationOpened && navigationMarkup && state && saver && (
             <NavigationFields
               activeGroup={section}
