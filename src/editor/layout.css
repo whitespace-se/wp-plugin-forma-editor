@@ -72,6 +72,17 @@ body.forma-editor-screen.mce-fullscreen .forma-editor__workspace {
   padding: 12px;
 }
 
+.forma-editor__back {
+  padding: 12px 12px 0;
+}
+
+.forma-editor__back .button-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-decoration: underline;
+}
+
 .forma-editor__navigation {
   border-top: 1px solid #dcdcde;
   padding: 12px;

@@ -131,6 +131,7 @@ final class Plugin
                 'title' => __('Titel', 'forma-editor'),
                 'content' => __('Content'),
                 'mainContent' => __('Huvudinnehåll', 'forma-editor'),
+                'back' => __('Tillbaka', 'forma-editor'),
                 'navigation' => __('Sidinställningar', 'forma-editor'),
                 'navigationError' => __('Sidinställningarna kunde inte startas. Ladda om eller öppna klassiska editorn.', 'forma-editor'),
                 'panelWidth' => __('Panelbredd', 'forma-editor'),

@@ -500,6 +500,21 @@ export function Editor({
         ) : (
           <p role="status">{labels.loading}</p>
         )}
+        {section !== null && (
+          <div className="forma-editor__back">
+            <button
+              type="button"
+              className="button-link"
+              onClick={() => navigate(null)}
+            >
+              <span
+                className="dashicons dashicons-arrow-left-alt2"
+                aria-hidden="true"
+              />
+              {labels.back}
+            </button>
+          </div>
+        )}
         <div
           className="forma-editor__section-list forma-editor__slide-back"
           hidden={section !== null}
