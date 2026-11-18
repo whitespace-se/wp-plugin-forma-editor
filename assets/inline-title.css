@@ -39,25 +39,22 @@
   padding: 4px;
   margin: -5px;
   box-sizing: content-box;
-  background:
-    repeating-linear-gradient(90deg, #2271b1 0 4px, transparent 4px 8px) top /
-      100% 1px,
-    repeating-linear-gradient(90deg, #2271b1 0 4px, transparent 4px 8px)
-      bottom / 100% 1px,
-    repeating-linear-gradient(0deg, #2271b1 0 4px, transparent 4px 8px) left /
-      1px 100%,
-    repeating-linear-gradient(0deg, #2271b1 0 4px, transparent 4px 8px) right /
-      1px 100%;
-  background-repeat: no-repeat;
+  background: repeating-linear-gradient(
+      45deg,
+      #2271b1 0 25%,
+      transparent 25% 50%
+    )
+    0 0 / 8px 8px;
+  /* Cut out the interior without painting over the page underneath. */
+  mask:
+    linear-gradient(#000 0 0) padding-box,
+    linear-gradient(#000 0 0) border-box;
+  mask-composite: exclude;
   animation: forma-title-ants 0.6s linear infinite;
 }
 @keyframes forma-title-ants {
   to {
-    background-position:
-      8px 0,
-      -8px 100%,
-      0 -8px,
-      100% 8px;
+    background-position: 8px 0;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -69,5 +66,6 @@
   .forma-inline-title-outline {
     outline: 2px dashed Highlight !important;
     background: none;
+    mask: none;
   }
 }
