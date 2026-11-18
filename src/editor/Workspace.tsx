@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { PreviewBridge } from "./PreviewBridge";
 import { apiFetch } from "../wordpress/api";
 import { Editor, type EditorConfig } from "./Editor";
 import { PanelResize } from "./PanelResize";
@@ -7,6 +8,18 @@ import { PanelResize } from "./PanelResize";
  * session. The old session flushes before requesting a switch; failed requests
  * leave its input intact. No pending response can update the next post. */
 export function Workspace({ initial }: { initial: EditorConfig }) {
+  const [bridge] = useState(() => new PreviewBridge());
+  const frameRef = useCallback(
+    (frame: HTMLIFrameElement | null) => bridge.attach(frame),
+    [bridge],
+  );
+  useEffect(() => {
+    window.addEventListener("message", bridge.receive);
+    return () => {
+      window.removeEventListener("message", bridge.receive);
+      bridge.disconnect();
+    };
+  }, [bridge]);
   const [config, setConfig] = useState(initial);
   const [section, setSection] = useState<string | null>(null);
   const [width, setWidth] = useState(420);
@@ -55,6 +68,7 @@ export function Workspace({ initial }: { initial: EditorConfig }) {
       style={{ gridTemplateColumns: `minmax(0, 1fr) min(${width}px, 90vw)` }}
     >
       <iframe
+        ref={frameRef}
         key={preview.version}
         className="forma-editor__preview"
         src={preview.url}
@@ -67,6 +81,7 @@ export function Workspace({ initial }: { initial: EditorConfig }) {
         onDragging={setResizing}
       />
       <Editor
+        bridge={bridge}
         key={config.postId}
         {...config}
         initialSection={section}

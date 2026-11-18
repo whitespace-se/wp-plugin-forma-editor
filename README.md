@@ -33,9 +33,9 @@ directly during autosave. Custom post types must opt in through
 `forma_editor_post_types` and support titles, REST access and frontend viewing.
 
 The preview blocks link/button activation and form submission while retaining
-scrolling. Use the toolbar to view the interactive site or choose another post.
-The guard applies only to authenticated Forma previews; ordinary pages retain
-their normal behavior.
+scrolling and explicitly enabled inline title editing. Use the toolbar to view
+the interactive site or choose another post. The guard applies only to
+authenticated Forma previews; ordinary pages retain their normal behavior.
 
 ## License
 

@@ -12,6 +12,7 @@ import { LockDialog } from "./LockDialog";
 import { ContentEditor } from "./ContentEditor";
 import { PublishControls } from "./PublishControls";
 import { NavigationFields } from "./NavigationFields";
+import type { PreviewBridge } from "./PreviewBridge";
 
 export interface EditorConfig {
   postId: number;
@@ -33,12 +34,15 @@ export interface EditorConfig {
 }
 
 export interface SessionProps {
+  bridge: PreviewBridge;
   initialSection?: string | null;
   onPreview: (url: string) => void;
   onSwitch: (module: number, section: string | null) => Promise<void>;
 }
 
 export function Editor({
+  bridge,
+  pageId,
   postId,
   editorMarkup,
   navigationMarkup,
@@ -195,6 +199,7 @@ export function Editor({
   }
 
   async function refreshPreview() {
+    if (bridge.editing) return;
     const request = ++previewRequest.current;
     try {
       await queue.current?.flush();
@@ -241,10 +246,12 @@ export function Editor({
       release();
     } catch (failure) {
       setError((failure as Error).message || labels.connectionError);
+      return false;
     } finally {
       acting.current = false;
       if (mounted.current) setBusy(false);
     }
+    return true;
   }
 
   async function act(operation: string) {
@@ -256,6 +263,8 @@ export function Editor({
     setError("");
     failedOperation.current = undefined;
     try {
+      if (operation === "publish" || operation === "draft")
+        await bridge.flush();
       if (
         operation === "publish" ||
         operation === "draft" ||
@@ -415,10 +424,11 @@ export function Editor({
   const editField = (
     field: "title" | "content" | "navigation",
     value: string | Record<string, string>,
+    inline = false,
   ) => {
     if (
       !queue.current ||
-      acting.current ||
+      (acting.current && !inline) ||
       current.current?.lockOwner ||
       current.current?.autosave?.otherChanges
     )
@@ -442,6 +452,31 @@ export function Editor({
     !state ||
     Boolean(state.lockOwner) ||
     Boolean(state.autosave?.otherChanges);
+  useLayoutEffect(() => {
+    bridge.configure({
+      state: {
+        pageId,
+        postId,
+        title: input.title,
+        busy,
+        writable: Boolean(
+          state &&
+          saver &&
+          !state.lockOwner &&
+          !state.autosave?.otherChanges &&
+          !authError,
+        ),
+      },
+      change: (title) => editField("title", title, true),
+      select: async () => {
+        if (!(await switchObject(0, "content")))
+          throw new Error("Object switch failed");
+      },
+      leave: () => {
+        void refreshPreview();
+      },
+    });
+  });
   return (
     <>
       <aside

@@ -307,6 +307,22 @@ final class Plugin
         if (!self::is_frame_request()) {
             return;
         }
+        $page = self::request_post_id('forma-preview');
+        if (get_template() === 'municipio' && get_queried_object_id() === $page && is_singular(['page', 'post'])) {
+            $base = plugin_dir_url(FORMA_EDITOR_FILE) . 'assets/';
+            $assets = dirname(__DIR__) . '/assets/';
+            wp_print_script_tag([
+                'id' => 'forma-inline-title-js',
+                'src' => add_query_arg('ver', (string) filemtime($assets . 'inline-title.js'), $base . 'inline-title.js'),
+                'data-config' => wp_json_encode([
+                    'pageId' => $page,
+                    'origin' => self::editor_origin(),
+                    'label' => __('Redigera sidtitel', 'forma-editor'),
+                    'placeholder' => __('Skriv sidtitel', 'forma-editor'),
+                ]),
+            ]);
+            echo '<link rel="stylesheet" href="' . esc_url(add_query_arg('ver', (string) filemtime($assets . 'inline-title.css'), $base . 'inline-title.css')) . '">';
+        }
         // Install before theme handlers. This interaction policy is not a
         // sandbox against scripts running on the site.
         $path = dirname(__DIR__) . '/assets/preview.js';
@@ -315,6 +331,28 @@ final class Plugin
             'src' => add_query_arg('ver', (string) filemtime($path), plugin_dir_url(FORMA_EDITOR_FILE) . 'assets/preview.js'),
         ]);
         echo '<style>.modularity-edit-module{display:none!important}</style>';
+    }
+
+    private static function editor_origin(): string
+    {
+        $url = wp_parse_url(admin_url());
+        return $url['scheme'] . '://' . $url['host'] . (isset($url['port']) ? ':' . $url['port'] : '');
+    }
+
+    /** Municipio hides empty headings. Keep its normal #page-title markup in
+     * authenticated previews without persisting a placeholder or altering menus. */
+    public static function inline_title_data(array $data): array
+    {
+        $page = self::request_post_id('forma-preview');
+        $post = $data['post'] ?? null;
+        if (!self::is_frame_request() || get_queried_object_id() !== $page
+            || !class_exists('Municipio\\PostObject\\Decorators\\AbstractPostObjectDecorator')
+            || !$post instanceof \Municipio\PostObject\PostObjectInterface
+            || $post->getId() !== $page || $post->getTitle() !== '') return $data;
+        $data['post'] = new class($post) extends \Municipio\PostObject\Decorators\AbstractPostObjectDecorator {
+            public function getTitle(): string { return "\u{200B}"; }
+        };
+        return $data;
     }
 
 }
