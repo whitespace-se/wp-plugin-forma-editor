@@ -322,6 +322,14 @@ final class Plugin
                 ]),
             ]);
             echo '<link rel="stylesheet" href="' . esc_url(add_query_arg('ver', (string) filemtime($assets . 'inline-title.css'), $base . 'inline-title.css')) . '">';
+            wp_enqueue_editor();
+            foreach (['inline-content-policy.js', 'inline-content.js'] as $file) {
+                wp_print_script_tag([
+                    'src' => add_query_arg('ver', (string) filemtime($assets . $file), $base . $file),
+                    'data-config' => wp_json_encode(['pageId' => $page, 'origin' => self::editor_origin()]),
+                ]);
+            }
+            echo '<link rel="stylesheet" href="' . esc_url(add_query_arg('ver', (string) filemtime($assets . 'inline-content.css'), $base . 'inline-content.css')) . '">';
         }
         // Install before theme handlers. This interaction policy is not a
         // sandbox against scripts running on the site.
@@ -339,8 +347,8 @@ final class Plugin
         return $url['scheme'] . '://' . $url['host'] . (isset($url['port']) ? ':' . $url['port'] : '');
     }
 
-    /** Municipio hides empty headings. Keep its normal #page-title markup in
-     * authenticated previews without persisting a placeholder or altering menus. */
+    /** Keep an explicit content boundary and empty heading in authenticated
+     * previews without altering saved content, public output or menus. */
     public static function inline_title_data(array $data): array
     {
         $page = self::request_post_id('forma-preview');
@@ -348,9 +356,17 @@ final class Plugin
         if (!self::is_frame_request() || get_queried_object_id() !== $page
             || !class_exists('Municipio\\PostObject\\Decorators\\AbstractPostObjectDecorator')
             || !$post instanceof \Municipio\PostObject\PostObjectInterface
-            || $post->getId() !== $page || $post->getTitle() !== '') return $data;
+            || $post->getId() !== $page) return $data;
         $data['post'] = new class($post) extends \Municipio\PostObject\Decorators\AbstractPostObjectDecorator {
-            public function getTitle(): string { return "\u{200B}"; }
+            public function getTitle(): string {
+                $title = parent::getTitle();
+                return $title === '' ? "\u{200B}" : $title;
+            }
+            // Only the post object's content is wrapped. Article hooks, modules,
+            // featured images and other generated siblings must never be edited.
+            public function getContent(): string {
+                return '<div id="forma-inline-content" data-forma-post="' . esc_attr((string) $this->getId()) . '">' . parent::getContent() . '</div>';
+            }
         };
         return $data;
     }

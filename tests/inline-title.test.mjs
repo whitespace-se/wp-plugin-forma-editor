@@ -67,6 +67,7 @@ function harness() {
     document,
     parent,
     Element,
+    CustomEvent,
     CSS: { supports: () => true },
     crypto,
     setInterval: () => 1,

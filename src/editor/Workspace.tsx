@@ -9,17 +9,24 @@ import { PanelResize } from "./PanelResize";
  * leave its input intact. No pending response can update the next post. */
 export function Workspace({ initial }: { initial: EditorConfig }) {
   const [bridge] = useState(() => new PreviewBridge());
+  const [contentBridge] = useState(() => new PreviewBridge("content"));
   const frameRef = useCallback(
-    (frame: HTMLIFrameElement | null) => bridge.attach(frame),
-    [bridge],
+    (frame: HTMLIFrameElement | null) => {
+      bridge.attach(frame);
+      contentBridge.attach(frame);
+    },
+    [bridge, contentBridge],
   );
   useEffect(() => {
     window.addEventListener("message", bridge.receive);
+    window.addEventListener("message", contentBridge.receive);
     return () => {
       window.removeEventListener("message", bridge.receive);
       bridge.disconnect();
+      window.removeEventListener("message", contentBridge.receive);
+      contentBridge.disconnect();
     };
-  }, [bridge]);
+  }, [bridge, contentBridge]);
   const [config, setConfig] = useState(initial);
   const [section, setSection] = useState<string | null>(null);
   const [width, setWidth] = useState(420);
@@ -82,6 +89,7 @@ export function Workspace({ initial }: { initial: EditorConfig }) {
       />
       <Editor
         bridge={bridge}
+        contentBridge={contentBridge}
         key={config.postId}
         {...config}
         initialSection={section}

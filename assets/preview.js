@@ -6,6 +6,7 @@
       .composedPath()
       .some((node) => node instanceof Element && node.matches(controls));
   const block = (event) => {
+    if (window.formaInlineContentOwns?.(event)) return;
     event.preventDefault();
     event.stopImmediatePropagation();
   };
@@ -39,6 +40,7 @@
     window.addEventListener(
       type,
       (event) => {
+        if (window.formaInlineContentOwns?.(event)) return;
         // Native controls can act before click. Preserve touch scrolling while
         // preventing the site's pointer/touch handlers from running.
         if (!type.startsWith("touch") && isControl(event))
@@ -52,6 +54,7 @@
     window.addEventListener(
       type,
       (event) => {
+        if (window.formaInlineContentOwns?.(event)) return;
         // Tab can leave the iframe. Scroll keys retain their browser defaults
         // on the page, while activation and editing on controls are blocked.
         if (event.key === "Enter" || (isControl(event) && event.key !== "Tab"))

@@ -37,6 +37,15 @@
   };
   const begin = () => {
     if (!state?.writable || state.busy || editing) return;
+    if (
+      !window.dispatchEvent(
+        new CustomEvent("forma-inline-enter", {
+          detail: "title",
+          cancelable: true,
+        }),
+      )
+    )
+      return;
     if (state.postId === config.pageId) {
       editing = true;
       startValue = value();
@@ -61,6 +70,12 @@
     paint();
     send("flushed", { title: value(), requestId });
   };
+  window.addEventListener("forma-inline-enter", (event) => {
+    if (event.detail !== "title") {
+      finish(false, true);
+      if (editing) event.preventDefault();
+    }
+  });
 
   window.addEventListener("message", (event) => {
     const data = event.data;
