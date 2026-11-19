@@ -351,14 +351,6 @@ export function start(
                   >
                     Blockinställningar
                   </Button>
-                  <Button
-                    onClick={(event: React.MouseEvent) => {
-                      event.stopPropagation();
-                      finish();
-                    }}
-                  >
-                    Klart
-                  </Button>
                   <BlockToolbar />
                 </div>,
                 tools,

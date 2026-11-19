@@ -30,7 +30,8 @@ function harness(field = "title") {
       postMessage: (data, origin) => sent.push({ ...data, origin }),
     },
   };
-  let selected = 0,
+  let opened = 0,
+    selected = 0,
     left = 0;
   const state = {
     pageId: 7,
@@ -43,6 +44,9 @@ function harness(field = "title") {
   const configure = () =>
     bridge.configure({
       state: { ...state },
+      opened: () => {
+        opened++;
+      },
       change: (value) => changed.push(value),
       select: async () => {
         selected++;
@@ -79,8 +83,39 @@ function harness(field = "title") {
     receive,
     selected: () => selected,
     left: () => left,
+    opened: () => opened,
   };
 }
+
+test("panel entry and preview entry report the same editing state; back cancels pending entry", async () => {
+  const h = harness("content");
+  h.bridge.begin();
+  assert.equal(h.opened(), 1);
+  assert.equal(h.sent.at(-1).type, "begin");
+  const back = h.bridge.flush();
+  const request = h.sent.at(-1);
+  h.receive("flushed", {
+    requestId: request.requestId,
+    content: h.state.content,
+  });
+  await back;
+  assert.equal(h.bridge.editing, false);
+  h.receive("begin");
+  assert.equal(h.opened(), 2);
+  h.state.busy = true;
+  h.configure();
+  h.bridge.begin();
+  const cancel = h.bridge.flush();
+  h.receive("flushed", {
+    requestId: h.sent.at(-1).requestId,
+    content: h.state.content,
+  });
+  await cancel;
+  h.state.busy = false;
+  h.configure();
+  assert.equal(h.bridge.editing, false);
+  assert.equal(h.opened(), 2);
+});
 
 test("handshake supplies host title; unrelated origins, windows and documents cannot edit", () => {
   const h = harness();
@@ -125,6 +160,7 @@ test("module selection cannot write page title into a module queue", async () =>
   h.receive("begin");
   await Promise.resolve();
   assert.equal(h.selected(), 1);
+  await h.bridge.flush();
   h.receive("change", { title: "wrong object" });
   assert.deepEqual(h.changed, []);
   h.state.postId = 7;

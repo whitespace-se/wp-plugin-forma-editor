@@ -12,6 +12,7 @@ interface Handlers {
   change: (title: string) => void;
   select: () => Promise<void>;
   leave: () => void;
+  opened?: () => void;
 }
 
 /** The iframe owns selection/composition; only the host owns persistence.
@@ -87,6 +88,7 @@ export class PreviewBridge {
     if (this.resume) {
       this.resume = false;
       this.active = true;
+      this.handlers?.opened?.();
       this.send("begin");
     }
   }
@@ -140,6 +142,7 @@ export class PreviewBridge {
         });
       } else {
         this.active = true;
+        this.handlers?.opened?.();
         this.send("begin");
       }
       return;
@@ -183,7 +186,17 @@ export class PreviewBridge {
     this.leaveTimer = undefined;
   }
 
+  begin() {
+    this.cancelRefresh();
+    this.resume = true;
+    this.sync();
+  }
+
   async flush() {
+    // Flushing the old module is part of selecting the page, not a cancellation
+    // of the queued page-edit request.
+    if (this.handlers?.state.postId === this.handlers?.state.pageId)
+      this.resume = false;
     this.cancelRefresh();
     if (
       !this.documentId ||

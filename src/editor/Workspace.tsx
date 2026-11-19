@@ -75,7 +75,6 @@ export function Workspace({ initial }: { initial: EditorConfig }) {
       style={{ gridTemplateColumns: `minmax(0, 1fr) min(${width}px, 90vw)` }}
     >
       <div className="forma-editor__canvas">
-        <div id="forma-block-tools" />
         <iframe
           ref={frameRef}
           key={preview.version}

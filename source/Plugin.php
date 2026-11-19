@@ -143,6 +143,7 @@ final class Plugin
                 'title' => __('Titel', 'forma-editor'),
                 'content' => __('Content'),
                 'mainContent' => __('Huvudinnehåll', 'forma-editor'),
+                'basic' => __('Grundläggande', 'forma-editor'),
                 'modules' => __('Moduler', 'forma-editor'),
                 'moduleShared' => __('Den här modulen används på flera sidor. Publicering påverkar alla sidor där den används.', 'forma-editor'),
                 'modulePage' => get_post_type_object($page->post_type)->labels->singular_name,

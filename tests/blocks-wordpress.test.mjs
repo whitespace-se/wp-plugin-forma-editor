@@ -184,9 +184,9 @@ test(
       );
       host.wp.data.dispatch("core/block-editor").clearSelectedBlock();
       await tick();
-      clickHost("Klart");
+      receive({ type: "flush", requestId: "back" });
       await tick();
-      assert.equal(sent.at(-1).type, "end");
+      assert.equal(sent.at(-1).type, "flushed");
       assert.equal(host.document.querySelector(".forma-block-toolbar"), null);
       assert.equal(
         w.document.querySelector("[data-forma-rendered]").hidden,

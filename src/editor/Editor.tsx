@@ -74,6 +74,7 @@ export function Editor({
   const [navigationOpened, setNavigationOpened] = useState(false);
   const panelRef = useRef<HTMLElement>(null);
   const lastSection = useRef<string | null>(null);
+  const inlineNavigation = useRef(false);
   const sections = useMemo(() => {
     const document = new DOMParser().parseFromString(
       navigationMarkup ?? "",
@@ -95,18 +96,36 @@ export function Editor({
       ? labels.modules
       : section === "content"
         ? labels.mainContent
-        : sections.find((item) => item.id === section)?.label;
-  function navigate(next: string | null) {
+        : section === "basic"
+          ? labels.basic
+          : sections.find((item) => item.id === section)?.label;
+  async function navigate(next: string | null) {
+    try {
+      if (blockContent && next !== "content") await contentBridge.flush();
+      if (next !== "basic" && bridge.editing) await bridge.flush();
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : String(failure));
+      return;
+    }
     lastSection.current = section;
     if (next === "content") setContentOpened(true);
     else if (next !== null) setNavigationOpened(true);
     setSection(next);
+    if (blockContent && !parentUrl && next === "content") {
+      contentBridge.begin();
+      return;
+    }
     void refreshPreview();
   }
   useLayoutEffect(() => {
     const panel = panelRef.current;
     if (!panel) return;
     panel.scrollTop = 0;
+    // Updating breadcrumbs from the canvas must not steal its editing focus.
+    if (inlineNavigation.current) {
+      inlineNavigation.current = false;
+      return;
+    }
     if (section !== null)
       panel
         .querySelector<HTMLElement>("#forma-current-section")
@@ -471,6 +490,11 @@ export function Editor({
   useLayoutEffect(() => {
     if (blockContent)
       contentBridge.configure({
+        opened: () => {
+          inlineNavigation.current = section !== "content";
+          setContentOpened(true);
+          setSection("content");
+        },
         state: {
           pageId,
           postId,
@@ -491,10 +515,17 @@ export function Editor({
             throw new Error("Object switch failed");
         },
         leave: () => {
+          setSection((current) => (current === "content" ? null : current));
           void refreshPreview();
         },
       });
     bridge.configure({
+      opened: () => {
+        if (!parentUrl) {
+          inlineNavigation.current = section !== "basic";
+          setSection("basic");
+        }
+      },
       state: {
         pageId,
         postId,
@@ -583,7 +614,6 @@ export function Editor({
             </div>
           )}
         </div>
-        {blockContent && <div id="forma-block-settings" />}
         {state ? (
           <PublishControls
             hidden={!parentUrl && section !== null}
@@ -652,6 +682,7 @@ export function Editor({
           hidden={section !== null}
         >
           {[
+            ...(!parentUrl ? [{ id: "basic", label: labels.basic }] : []),
             { id: "content", label: labels.mainContent },
             ...sections,
             ...(modules.length
@@ -710,7 +741,7 @@ export function Editor({
         )}
         <div
           className="forma-editor__controls forma-editor__slide-in"
-          hidden={section !== "content"}
+          hidden={section !== (parentUrl ? "content" : "basic")}
         >
           <label htmlFor="forma-title">{labels.title}</label>
           <input
@@ -734,8 +765,16 @@ export function Editor({
               }
             }}
           />
-          {blockContent && !parentUrl && (
-            <p>Redigera innehållet direkt i förhandsvisningen.</p>
+        </div>
+        <div
+          className="forma-editor__controls forma-editor__slide-in"
+          hidden={section !== "content"}
+        >
+          {blockContent && (
+            <>
+              <div id="forma-block-tools" />
+              <div id="forma-block-settings" />
+            </>
           )}
           {(!blockContent || parentUrl) && contentOpened && state && saver && (
             <ContentEditor
@@ -794,7 +833,10 @@ export function Editor({
         )}
         <div
           hidden={
-            section === null || section === "content" || section === "modules"
+            section === null ||
+            section === "content" ||
+            section === "basic" ||
+            section === "modules"
           }
         >
           {navigationOpened && navigationMarkup && state && saver && (
