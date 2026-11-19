@@ -21,6 +21,10 @@ final class Blocks
         require_once ABSPATH . 'wp-admin/includes/post.php';
         $context = new \WP_Block_Editor_Context(['post' => $post, 'name' => 'forma/block-trial']);
         $settings = get_block_editor_settings([], $context);
+        // These HTML strings are for core's nested editor iframe, which Forma
+        // does not mount. Resources are enqueued in our preview document instead.
+        // Sending the unused script markup also exposes JSON to HTML asset rewriters.
+        unset($settings['__unstableResolvedAssets']);
         // Both list and list-item are needed by current core's nested lists.
         $settings['allowedBlockTypes'] = ['core/paragraph', 'core/heading', 'core/list', 'core/list-item', 'core/image'];
         $settings['hasFixedToolbar'] = true;
