@@ -2,9 +2,12 @@
 
 An open source visual editing workspace for WordPress. This alpha edits page and
 post titles and classic-editor content alongside a site preview. It uses
-WordPress autosaves, revisions, editing locks and draft/published states. Inline
-editing, ACF and Modularity editing, and Gutenberg integration are not included.
-Use the classic editor for unsupported fields and publishing options.
+WordPress autosaves, revisions, editing locks and draft/published states. This
+alpha also includes inline page-title editing in Municipio previews, selected
+ACF navigation and color-theme fields, and separate editing of existing
+Modularity text modules. Inline body editing, general ACF/module support and
+Gutenberg integration are not included. Use the classic editor for unsupported
+fields and publishing options.
 
 ## Development
 
@@ -24,7 +27,7 @@ supported-version matrix has not yet been verified.
 Install the plugin directory including `build/` in WordPress and activate it.
 The Composer package is `whitespace-se/wp-plugin-forma-editor`, installed as
 `forma-editor` through `composer/installers`. Use the GitHub VCS repository and
-the exact `0.1.0-alpha.1` requirement. Installable ZIP files are provided with
+the exact `0.1.0-alpha.2` requirement. Installable ZIP files are provided with
 [GitHub releases](https://github.com/whitespace-se/wp-plugin-forma-editor/releases).
 The frontend toolbar's edit link opens Forma for published posts and drafts. Use
 the toolbar to view the page or switch to the classic editor. Published content
