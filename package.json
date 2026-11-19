@@ -8,12 +8,12 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "build": "vite build",
+    "build": "vite build && vite build --config vite.blocks.config.ts",
     "dev": "vite build --watch --mode development",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "lint:php": "php -l forma-editor.php && php -l source/Assets.php && php -l source/Plugin.php && php -l source/Workflow.php && php -l source/Modules.php && php -l source/NavigationFields.php && php -l source/NavigationPreview.php",
+    "lint:php": "php -l forma-editor.php && php -l source/Assets.php && php -l source/Blocks.php && php -l source/Plugin.php && php -l source/Workflow.php && php -l source/Modules.php && php -l source/NavigationFields.php && php -l source/NavigationPreview.php",
     "test:php": "php tests/editor-policy.php",
     "test:js": "node --test tests/*.test.mjs",
     "check": "npm run typecheck && npm run format:check && npm run lint:php && npm run test:php && npm run test:js"
@@ -23,6 +23,7 @@
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
     "@wordpress/api-fetch": "8.1.0",
+    "jsdom": "^26.1.0",
     "prettier": "^3.9.4",
     "react": "18.3.1",
     "react-dom": "18.3.1",

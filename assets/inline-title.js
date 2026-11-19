@@ -37,6 +37,7 @@
   };
   const begin = () => {
     if (!state?.writable || state.busy || editing) return;
+    window.dispatchEvent(new Event("forma:title-start"));
     if (state.postId === config.pageId) {
       editing = true;
       startValue = value();

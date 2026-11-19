@@ -8,14 +8,22 @@ const script = readFileSync(
   "utf8",
 );
 class Control {
-  matches() {
-    return true;
+  matches(selector) {
+    return (
+      !selector.includes("data-forma") &&
+      !selector.includes("components-popover")
+    );
   }
 }
 
 function dispatch(type, { control = false, key } = {}) {
   const window = new EventTarget();
-  runInNewContext(script, { window, Element: Control });
+  runInNewContext(script, {
+    window,
+    Element: Control,
+    Event,
+    document: { querySelector: () => null },
+  });
   let themeCalled = false;
   window.addEventListener(type, () => {
     themeCalled = true;

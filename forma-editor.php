@@ -50,6 +50,8 @@ add_action('template_redirect', [NavigationPreview::class, 'prepare'], -10);
 
 // Registration is inert until the editor screen explicitly enqueues its assets.
 add_action('init', [Assets::class, 'register']);
+require_once __DIR__ . '/source/Blocks.php';
+add_action('wp_enqueue_scripts', [Blocks::class, 'enqueue'], 100);
 add_action('admin_menu', [Plugin::class, 'register_screen']);
 add_action('admin_bar_menu', [Plugin::class, 'adapt_admin_bar'], 100);
 add_filter('show_admin_bar', [Plugin::class, 'preview_admin_bar'], 100);

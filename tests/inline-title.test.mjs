@@ -25,8 +25,11 @@ function harness() {
     setAttribute(key, value) {
       this.attributes[key] = value;
     }
-    matches() {
-      return true;
+    matches(selector) {
+      return (
+        !selector.includes("data-forma") &&
+        !selector.includes("components-popover")
+      );
     }
     focus() {
       if (document.activeElement === this) return;
@@ -52,6 +55,7 @@ function harness() {
   };
   document.body = { append: (element) => overlays.push(element) };
   document.querySelectorAll = () => [title];
+  document.querySelector = () => null;
   document.createElement = () => new Element();
   const parent = {
     postMessage: (data, origin) => sent.push({ ...data, origin }),
@@ -67,6 +71,7 @@ function harness() {
     document,
     parent,
     Element,
+    Event,
     CSS: { supports: () => true },
     crypto,
     setInterval: () => 1,

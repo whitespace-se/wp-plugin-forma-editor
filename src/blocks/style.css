@@ -1,0 +1,115 @@
+#forma-block-content {
+  anchor-name: --forma-block-content;
+  min-height: 4rem;
+}
+#forma-block-content:focus {
+  outline: none;
+}
+.forma-block-outline {
+  position: absolute;
+  position-anchor: --forma-block-content;
+  top: anchor(top);
+  left: anchor(left);
+  width: anchor-size(width);
+  height: anchor-size(height);
+  pointer-events: none;
+  z-index: 10000;
+  outline: 1px dashed #2271b1;
+  outline-offset: 4px;
+  opacity: 0.45;
+}
+.forma-block-outline[data-hover="true"],
+.forma-block-outline[data-editing="true"] {
+  opacity: 1;
+}
+.forma-block-outline[data-editing="true"] {
+  outline: none;
+  border: 1px solid transparent;
+  padding: 4px;
+  margin: -5px;
+  box-sizing: content-box;
+  background: repeating-linear-gradient(
+      45deg,
+      #2271b1 0 25%,
+      transparent 25% 50%
+    )
+    0 0 / 8px 8px;
+  mask:
+    linear-gradient(#000 0 0) padding-box,
+    linear-gradient(#000 0 0) border-box;
+  mask-composite: exclude;
+  animation: forma-block-ants 0.6s linear infinite;
+}
+@keyframes forma-block-ants {
+  to {
+    background-position: 8px 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .forma-block-outline {
+    animation: none !important;
+  }
+}
+@supports not (top: anchor(top)) {
+  #forma-block-content[data-forma-block-ui] {
+    outline: 1px dashed #2271b1;
+    outline-offset: 4px;
+  }
+  .forma-block-outline {
+    display: none;
+  }
+}
+.forma-block-editor {
+  position: relative;
+}
+.forma-block-editor .editor-styles-wrapper {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+.forma-block-editor .wp-block {
+  max-width: none;
+}
+.forma-block-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: #fff;
+  color: #1e1e1e;
+  border: 1px solid #ddd;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  font: 13px system-ui;
+}
+.forma-block-toolbar .block-editor-block-toolbar {
+  position: static;
+}
+.forma-block-inspector {
+  position: absolute;
+  inset-inline-end: 0;
+  width: min(320px, 100%);
+  max-height: 65vh;
+  overflow: auto;
+  background: #fff;
+  color: #1e1e1e;
+  z-index: 101;
+  border: 1px solid #ddd;
+  font: 13px system-ui;
+}
+.forma-block-notice {
+  padding: 1rem;
+  background: #fff;
+  color: #1e1e1e;
+  border-inline-start: 4px solid #d63638;
+}
+#forma-block-content [data-forma-rendered][hidden] {
+  display: none !important;
+}
+@media (forced-colors: active) {
+  .forma-block-outline {
+    outline: 2px dashed Highlight !important;
+    background: none;
+    mask: none;
+  }
+}

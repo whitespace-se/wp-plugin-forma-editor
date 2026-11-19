@@ -121,6 +121,7 @@ final class Plugin
         wp_add_inline_script('forma-editor', 'FormaEditor.start(' . wp_json_encode([
             'postId' => $post->ID,
             'pageId' => $page->ID,
+            'blockContent' => Blocks::enabled($page->ID),
             'contextPath' => '/forma/v1/pages/' . $page->ID . '/editor-context',
             'wpautop' => !has_blocks($post),
             'editorMarkup' => $editor_markup,
@@ -333,7 +334,7 @@ final class Plugin
         echo '<style>.modularity-edit-module{display:none!important}</style>';
     }
 
-    private static function editor_origin(): string
+    public static function editor_origin(): string
     {
         $url = wp_parse_url(admin_url());
         return $url['scheme'] . '://' . $url['host'] . (isset($url['port']) ? ':' . $url['port'] : '');
@@ -348,9 +349,16 @@ final class Plugin
         if (!self::is_frame_request() || get_queried_object_id() !== $page
             || !class_exists('Municipio\\PostObject\\Decorators\\AbstractPostObjectDecorator')
             || !$post instanceof \Municipio\PostObject\PostObjectInterface
-            || $post->getId() !== $page || $post->getTitle() !== '') return $data;
+            || $post->getId() !== $page) return $data;
+        $blocks = Blocks::enabled($page);
+        if (!$blocks && $post->getTitle() !== '') return $data;
         $data['post'] = new class($post) extends \Municipio\PostObject\Decorators\AbstractPostObjectDecorator {
-            public function getTitle(): string { return "\u{200B}"; }
+            public function getTitle(): string { return parent::getTitle() ?: "\u{200B}"; }
+            public function getContent(): string {
+                $html = parent::getContent();
+                if (!Blocks::enabled($this->getId())) return $html;
+                return '<div id="forma-block-content" data-forma-post="' . esc_attr((string) $this->getId()) . '"><div data-forma-rendered>' . $html . '</div><div data-forma-block-mount></div></div>';
+            }
         };
         return $data;
     }

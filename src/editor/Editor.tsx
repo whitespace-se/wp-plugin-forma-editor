@@ -19,6 +19,7 @@ export interface EditorConfig {
   pageId: number;
   contextPath: string;
   wpautop: boolean;
+  blockContent?: boolean;
   editorMarkup: string;
   navigationMarkup?: string;
   workflowPath: string;
@@ -35,6 +36,7 @@ export interface EditorConfig {
 
 export interface SessionProps {
   bridge: PreviewBridge;
+  contentBridge: PreviewBridge;
   initialSection?: string | null;
   onPreview: (url: string) => void;
   onSwitch: (module: number, section: string | null) => Promise<void>;
@@ -42,6 +44,8 @@ export interface SessionProps {
 
 export function Editor({
   bridge,
+  contentBridge,
+  blockContent = false,
   pageId,
   postId,
   editorMarkup,
@@ -64,7 +68,9 @@ export function Editor({
   const [section, setSection] = useState<string | null>(
     parentUrl ? "content" : (initialSection ?? null),
   );
-  const [contentOpened, setContentOpened] = useState(Boolean(parentUrl));
+  const [contentOpened, setContentOpened] = useState(
+    Boolean(parentUrl) || initialSection === "content",
+  );
   const [navigationOpened, setNavigationOpened] = useState(false);
   const panelRef = useRef<HTMLElement>(null);
   const lastSection = useRef<string | null>(null);
@@ -199,13 +205,15 @@ export function Editor({
   }
 
   async function refreshPreview() {
-    if (bridge.editing) return;
+    if (bridge.editing || contentBridge.editing) return;
     const request = ++previewRequest.current;
     try {
       await queue.current?.flush();
       if (
         mounted.current &&
         !acting.current &&
+        !bridge.editing &&
+        !contentBridge.editing &&
         request === previewRequest.current &&
         previewDirty.current &&
         current.current
@@ -241,6 +249,8 @@ export function Editor({
     setError("");
     previewRequest.current++;
     try {
+      await contentBridge.flush();
+      await bridge.flush();
       await queue.current?.flush();
       await onSwitch(module, section);
       release();
@@ -263,8 +273,14 @@ export function Editor({
     setError("");
     failedOperation.current = undefined;
     try {
-      if (operation === "publish" || operation === "draft")
+      if (
+        operation === "publish" ||
+        operation === "draft" ||
+        operation === "discard"
+      ) {
+        await contentBridge.flush();
         await bridge.flush();
+      }
       if (
         operation === "publish" ||
         operation === "draft" ||
@@ -453,6 +469,31 @@ export function Editor({
     Boolean(state.lockOwner) ||
     Boolean(state.autosave?.otherChanges);
   useLayoutEffect(() => {
+    if (blockContent)
+      contentBridge.configure({
+        state: {
+          pageId,
+          postId,
+          title: input.title,
+          content: input.content,
+          busy,
+          writable: Boolean(
+            state &&
+            saver &&
+            !state.lockOwner &&
+            !state.autosave?.otherChanges &&
+            !authError,
+          ),
+        },
+        change: (content) => editField("content", content, true),
+        select: async () => {
+          if (!(await switchObject(0, "content")))
+            throw new Error("Object switch failed");
+        },
+        leave: () => {
+          void refreshPreview();
+        },
+      });
     bridge.configure({
       state: {
         pageId,
@@ -692,7 +733,10 @@ export function Editor({
               }
             }}
           />
-          {contentOpened && state && saver && (
+          {blockContent && !parentUrl && (
+            <p>Redigera innehållet direkt i förhandsvisningen.</p>
+          )}
+          {(!blockContent || parentUrl) && contentOpened && state && saver && (
             <ContentEditor
               key={contentVersion}
               markup={editorMarkup}

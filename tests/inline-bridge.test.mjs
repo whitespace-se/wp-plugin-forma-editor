@@ -20,8 +20,8 @@ const Bridge = vm.runInNewContext(`${source}\nPreviewBridge`, {
   Promise,
 });
 
-function harness() {
-  const bridge = new Bridge();
+function harness(field = "title") {
+  const bridge = new Bridge(field);
   const sent = [],
     changed = [];
   const frame = {
@@ -36,6 +36,7 @@ function harness() {
     pageId: 7,
     postId: 7,
     title: "Working title",
+    content: "<!-- wp:paragraph --><p>Text</p><!-- /wp:paragraph -->",
     writable: true,
     busy: false,
   };
@@ -58,7 +59,7 @@ function harness() {
       origin: "https://nora.test",
       source: frame.contentWindow,
       data: {
-        channel: "forma-title",
+        channel: `forma-${field}`,
         version: 1,
         documentId: "document-a",
         sequence: ++sequence,
@@ -158,5 +159,34 @@ test("a refreshed preview is initialized without restoring title focus or editin
     ["state"],
   );
   assert.equal(h.bridge.editing, false);
+  h.bridge.disconnect();
+});
+
+test("block content flush is inactive until editing and preserves final serialized source", async () => {
+  const h = harness("content");
+  const count = h.sent.length;
+  await h.bridge.flush();
+  assert.equal(h.sent.length, count);
+  h.receive("begin");
+  h.receive("change", { content: "wrong channel", channel: "forma-title" });
+  assert.deepEqual(h.changed, []);
+  const pending = h.bridge.flush();
+  const requestId = h.sent.at(-1).requestId;
+  const content =
+    "<!-- wp:paragraph -->\n<p>Last character!</p>\n<!-- /wp:paragraph -->";
+  h.receive("flushed", { content, requestId });
+  await pending;
+  assert.deepEqual(h.changed, [content]);
+  h.bridge.disconnect();
+});
+
+test("an open block dialog rejects publishing instead of silently dropping pending media", async () => {
+  const h = harness("content");
+  h.receive("begin");
+  const pending = h.bridge.flush();
+  h.receive("blocked", { requestId: h.sent.at(-1).requestId });
+  await assert.rejects(pending);
+  assert.equal(h.bridge.editing, true);
+  assert.deepEqual(h.changed, []);
   h.bridge.disconnect();
 });

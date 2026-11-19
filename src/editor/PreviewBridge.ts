@@ -2,6 +2,7 @@ export interface InlineState {
   pageId: number;
   postId: number;
   title: string;
+  content?: string;
   writable: boolean;
   busy: boolean;
 }
@@ -16,6 +17,7 @@ interface Handlers {
 /** The iframe owns selection/composition; only the host owns persistence.
  * Document and sequence IDs prevent old previews overwriting a new session. */
 export class PreviewBridge {
+  constructor(private field: "title" | "content" = "title") {}
   private frame: HTMLIFrameElement | null = null;
   private origin = "";
   private documentId = "";
@@ -61,7 +63,7 @@ export class PreviewBridge {
     if (this.documentId)
       this.frame?.contentWindow?.postMessage(
         {
-          channel: "forma-title",
+          channel: `forma-${this.field}`,
           version: 1,
           documentId: this.documentId,
           type,
@@ -96,7 +98,7 @@ export class PreviewBridge {
       event.source !== this.frame.contentWindow ||
       event.origin !== this.origin ||
       !data ||
-      data.channel !== "forma-title" ||
+      data.channel !== `forma-${this.field}` ||
       data.version !== 1 ||
       typeof data.documentId !== "string" ||
       data.documentId.length > 80 ||
@@ -123,6 +125,10 @@ export class PreviewBridge {
       return;
     this.sequence = data.sequence;
     const { state, change, select, leave } = this.handlers;
+    if (data.type === "blocked" && this.pending?.id === data.requestId) {
+      this.failPending();
+      return;
+    }
     if (data.type === "begin") {
       if (!state.writable || state.busy) return;
       this.cancelRefresh();
@@ -148,11 +154,11 @@ export class PreviewBridge {
       (data.type === "change" ||
         data.type === "end" ||
         data.type === "flushed") &&
-      typeof data.title === "string" &&
-      !/[\r\n]/.test(data.title)
+      typeof data[this.field] === "string" &&
+      (this.field === "content" || !/[\r\n]/.test(data.title))
     ) {
       if (!this.active && data.type === "change") return;
-      change(data.title);
+      change(data[this.field]);
       if (data.type === "change") return;
       this.active = false;
       if (data.type === "flushed") {
@@ -181,6 +187,7 @@ export class PreviewBridge {
     this.cancelRefresh();
     if (
       !this.documentId ||
+      (this.field === "content" && !this.active) ||
       this.handlers?.state.postId !== this.handlers?.state.pageId
     )
       return;
@@ -202,7 +209,7 @@ export class PreviewBridge {
     clearTimeout(this.pending.timer);
     this.pending.reject(
       new Error(
-        "Kontakt med titelredigeringen saknas. Försök igen innan du sparar.",
+        "Kontakt med inline-redigeringen saknas. Försök igen innan du sparar.",
       ),
     );
     this.pending = undefined;
