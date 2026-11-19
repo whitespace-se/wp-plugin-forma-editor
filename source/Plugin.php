@@ -322,7 +322,16 @@ final class Plugin
                 ]),
             ]);
             echo '<link rel="stylesheet" href="' . esc_url(add_query_arg('ver', (string) filemtime($assets . 'inline-title.css'), $base . 'inline-title.css')) . '">';
-            wp_enqueue_editor();
+            // enqueue_default_editor() can return early when another plugin
+            // already enqueued an editor. Own a named configuration instead of
+            // depending on the optional wp.editor.getDefaultSettings helper.
+            ob_start();
+            wp_editor('', 'forma-inline-source', [
+                'tinymce' => ['wp_skip_init' => true],
+                'quicktags' => false,
+                'media_buttons' => false,
+            ]);
+            ob_end_clean();
             foreach (['inline-content-policy.js', 'inline-content.js'] as $file) {
                 wp_print_script_tag([
                     'src' => add_query_arg('ver', (string) filemtime($assets . $file), $base . $file),

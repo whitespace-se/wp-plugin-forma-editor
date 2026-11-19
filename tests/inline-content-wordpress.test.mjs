@@ -87,9 +87,6 @@ test(
       w.IntersectionObserver = class {
         observe() {}
       };
-      w.wp.editor.getDefaultSettings = () => ({
-        tinymce: { theme: "modern", skin: false, language: "en" },
-      });
       Object.defineProperty(w.document, "currentScript", {
         value: {
           dataset: {
@@ -133,6 +130,37 @@ test(
         acknowledged: sent.at(-1).sequence,
       });
       const surface = w.document.getElementById("forma-inline-content");
+      surface.click();
+      assert.equal(
+        surface.textContent,
+        "Theme-generated content",
+        "missing settings must not empty the preview",
+      );
+      assert.equal(sent.filter((packet) => packet.type === "begin").length, 0);
+      assert.match(
+        w.document.querySelector(".forma-content-error").textContent,
+        /oförändrat/,
+      );
+      w.tinyMCEPreInit = {
+        mceInit: {
+          "forma-inline-source": {
+            theme: "modern",
+            skin: false,
+            language: "en",
+            wp_skip_init: true,
+            id: "forma-inline-source",
+          },
+        },
+      };
+      if (process.env.FORMA_TEST_SETTINGS) {
+        w.eval(readFileSync(process.env.FORMA_TEST_SETTINGS, "utf8"));
+        // Headless checks load no network skins or language packs.
+        Object.assign(w.tinyMCEPreInit.mceInit["forma-inline-source"], {
+          skin: false,
+          content_css: false,
+          language: "en",
+        });
+      }
       surface.click();
       await new Promise((resolve) => w.setTimeout(resolve, 30));
       assert.equal(

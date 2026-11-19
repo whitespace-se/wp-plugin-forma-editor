@@ -168,6 +168,15 @@
       );
       return;
     }
+    // Resolve dependencies before moving any visible content. Missing or
+    // delayed core settings must leave the preview and working value intact.
+    const defaults = window.tinyMCEPreInit?.mceInit?.["forma-inline-source"];
+    if (!defaults || typeof defaults !== "object") {
+      error(
+        "Editorn kunde inte laddas. Innehållet är oförändrat. Ladda om sidan eller använd panelen.",
+      );
+      return;
+    }
     if (
       !window.dispatchEvent(
         new CustomEvent("forma-inline-enter", {
@@ -190,10 +199,14 @@
     }, 10000);
     message.textContent = "";
     send("begin");
-    const defaults = window.wp.editor.getDefaultSettings().tinymce;
     try {
       const initialization = window.tinymce.init({
         ...defaults,
+        id: "forma-inline-content",
+        wp_skip_init: false,
+        // Inline content already uses the theme's styles; core's iframe
+        // stylesheet must not be injected into the surrounding preview page.
+        content_css: false,
         selector: "#forma-inline-content",
         inline: true,
         readonly: true,
