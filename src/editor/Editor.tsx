@@ -67,7 +67,9 @@ export function Editor({
   const [section, setSection] = useState<string | null>(
     parentUrl ? "content" : (initialSection ?? null),
   );
-  const [contentOpened, setContentOpened] = useState(Boolean(parentUrl));
+  const [contentOpened, setContentOpened] = useState(
+    Boolean(parentUrl) || initialSection === "content",
+  );
   const [navigationOpened, setNavigationOpened] = useState(false);
   const panelRef = useRef<HTMLElement>(null);
   const lastSection = useRef<string | null>(null);
@@ -506,7 +508,7 @@ export function Editor({
           throw new Error("Object switch failed");
       },
       panel: () => {
-        if (postId === pageId) setSection("content");
+        if (postId === pageId) navigate("content");
         else void switchObject(0, "content");
       },
       media: inlineMedia,

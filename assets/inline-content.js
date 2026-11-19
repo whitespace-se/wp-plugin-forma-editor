@@ -170,7 +170,7 @@
     }
     // Resolve dependencies before moving any visible content. Missing or
     // delayed core settings must leave the preview and working value intact.
-    const defaults = window.tinyMCEPreInit?.mceInit?.["forma-inline-source"];
+    const defaults = config.editor;
     if (!defaults || typeof defaults !== "object") {
       error(
         "Editorn kunde inte laddas. Innehållet är oförändrat. Ladda om sidan eller använd panelen.",

@@ -325,17 +325,40 @@ final class Plugin
             // enqueue_default_editor() can return early when another plugin
             // already enqueued an editor. Own a named configuration instead of
             // depending on the optional wp.editor.getDefaultSettings helper.
+            $editor_settings = null;
+            $capture = static function (array $settings, string $id) use (&$editor_settings): array {
+                if ($id === 'forma-inline-source') {
+                    // Transport only the scalar core settings used by this
+                    // isolated editor. Core also accepts JavaScript literals
+                    // here; those must not be evaluated from a JSON payload.
+                    $editor_settings = array_intersect_key($settings, array_flip([
+                        'theme', 'skin', 'language', 'wp_lang_attr', 'entities',
+                        'entity_encoding', 'browser_spellcheck', 'indent',
+                        'relative_urls', 'remove_script_host', 'convert_urls',
+                        'fix_list_elements', 'keep_styles', 'end_container_on_empty_block',
+                    ]));
+                }
+                return $settings;
+            };
+            add_filter('tiny_mce_before_init', $capture, PHP_INT_MAX, 2);
+            // wp_editor prints these into its markup on the frontend. Emit
+            // them before discarding that markup, or WP marks lost CSS done.
+            wp_print_styles('editor-buttons');
             ob_start();
-            wp_editor('', 'forma-inline-source', [
-                'tinymce' => ['wp_skip_init' => true],
-                'quicktags' => false,
-                'media_buttons' => false,
-            ]);
-            ob_end_clean();
+            try {
+                wp_editor('', 'forma-inline-source', [
+                    'tinymce' => ['wp_skip_init' => true],
+                    'quicktags' => false,
+                    'media_buttons' => false,
+                ]);
+            } finally {
+                ob_end_clean();
+                remove_filter('tiny_mce_before_init', $capture, PHP_INT_MAX);
+            }
             foreach (['inline-content-policy.js', 'inline-content.js'] as $file) {
                 wp_print_script_tag([
                     'src' => add_query_arg('ver', (string) filemtime($assets . $file), $base . $file),
-                    'data-config' => wp_json_encode(['pageId' => $page, 'origin' => self::editor_origin()]),
+                    'data-config' => wp_json_encode(['pageId' => $page, 'origin' => self::editor_origin(), 'editor' => $editor_settings]),
                 ]);
             }
             echo '<link rel="stylesheet" href="' . esc_url(add_query_arg('ver', (string) filemtime($assets . 'inline-content.css'), $base . 'inline-content.css')) . '">';
