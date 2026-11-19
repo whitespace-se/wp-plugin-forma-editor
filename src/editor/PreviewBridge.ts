@@ -2,7 +2,6 @@ export interface InlineState {
   pageId: number;
   postId: number;
   title: string;
-  content?: string;
   writable: boolean;
   busy: boolean;
 }
@@ -12,14 +11,11 @@ interface Handlers {
   change: (title: string) => void;
   select: () => Promise<void>;
   leave: () => void;
-  panel?: () => void;
-  media?: () => Promise<string | null>;
 }
 
 /** The iframe owns selection/composition; only the host owns persistence.
  * Document and sequence IDs prevent old previews overwriting a new session. */
 export class PreviewBridge {
-  constructor(private field: "title" | "content" = "title") {}
   private frame: HTMLIFrameElement | null = null;
   private origin = "";
   private documentId = "";
@@ -65,7 +61,7 @@ export class PreviewBridge {
     if (this.documentId)
       this.frame?.contentWindow?.postMessage(
         {
-          channel: `forma-${this.field}`,
+          channel: "forma-title",
           version: 1,
           documentId: this.documentId,
           type,
@@ -100,7 +96,7 @@ export class PreviewBridge {
       event.source !== this.frame.contentWindow ||
       event.origin !== this.origin ||
       !data ||
-      data.channel !== `forma-${this.field}` ||
+      data.channel !== "forma-title" ||
       data.version !== 1 ||
       typeof data.documentId !== "string" ||
       data.documentId.length > 80 ||
@@ -127,40 +123,6 @@ export class PreviewBridge {
       return;
     this.sequence = data.sequence;
     const { state, change, select, leave } = this.handlers;
-    if (data.type === "panel") {
-      this.handlers.panel?.();
-      return;
-    }
-    if (
-      data.type === "media" &&
-      this.active &&
-      state.writable &&
-      !state.busy &&
-      this.handlers.media
-    ) {
-      const documentId = this.documentId;
-      const requestId = data.requestId;
-      if (typeof requestId !== "string" || requestId.length > 80) return;
-      void this.handlers
-        .media()
-        .then((html) => {
-          if (
-            this.documentId === documentId &&
-            this.active &&
-            this.handlers?.state.writable
-          )
-            this.send("media", { requestId, html });
-        })
-        .catch(() => {
-          if (this.documentId === documentId)
-            this.send("media", { requestId, html: null });
-        });
-      return;
-    }
-    if (data.type === "blocked" && this.pending?.id === data.requestId) {
-      this.failPending();
-      return;
-    }
     if (data.type === "begin") {
       if (!state.writable || state.busy) return;
       this.cancelRefresh();
@@ -186,11 +148,11 @@ export class PreviewBridge {
       (data.type === "change" ||
         data.type === "end" ||
         data.type === "flushed") &&
-      typeof data[this.field] === "string" &&
-      (this.field === "content" || !/[\r\n]/.test(data.title))
+      typeof data.title === "string" &&
+      !/[\r\n]/.test(data.title)
     ) {
       if (!this.active && data.type === "change") return;
-      change(data[this.field]);
+      change(data.title);
       if (data.type === "change") return;
       this.active = false;
       if (data.type === "flushed") {
@@ -219,7 +181,6 @@ export class PreviewBridge {
     this.cancelRefresh();
     if (
       !this.documentId ||
-      (this.field === "content" && !this.active) ||
       this.handlers?.state.postId !== this.handlers?.state.pageId
     )
       return;
@@ -241,7 +202,7 @@ export class PreviewBridge {
     clearTimeout(this.pending.timer);
     this.pending.reject(
       new Error(
-        "Inline-redigeringen kunde inte avslutas. Stäng eventuella dialoger och försök igen innan du sparar.",
+        "Kontakt med titelredigeringen saknas. Försök igen innan du sparar.",
       ),
     );
     this.pending = undefined;

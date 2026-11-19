@@ -20,53 +20,8 @@ const Bridge = vm.runInNewContext(`${source}\nPreviewBridge`, {
   Promise,
 });
 
-test("content flush requires its own final value and preserves newlines", async () => {
-  const h = harness("content");
-  h.receive("begin");
-  h.receive("change", { content: "<p>One</p>\n<p>Two</p>" });
-  assert.equal(h.changed.at(-1), "<p>One</p>\n<p>Two</p>");
-  const promise = h.bridge.flush();
-  const requestId = h.sent.at(-1).requestId;
-  h.receive("flushed", { requestId: "wrong", content: "wrong" });
-  h.receive("flushed", { requestId, content: "<p>Final</p>" });
-  await promise;
-  assert.equal(h.changed.at(-1), "<p>Final</p>");
-  assert.equal(h.bridge.editing, false);
-  h.bridge.disconnect();
-});
-
-test("a late media response never reaches a replacement preview", async () => {
-  let resolve;
-  const h = harness(
-    "content",
-    () =>
-      new Promise((done) => {
-        resolve = done;
-      }),
-  );
-  h.receive("begin");
-  h.receive("media", { requestId: "media-a" });
-  h.bridge.attach(null);
-  h.bridge.attach(h.frame);
-  h.receive("ready", { pageId: 7, documentId: "document-b" });
-  resolve('<img src="/image.jpg">');
-  await Promise.resolve();
-  assert.equal(h.sent.filter((message) => message.type === "media").length, 0);
-  h.bridge.disconnect();
-});
-
-test("an open dialog blocks publication rather than acknowledging stale content", async () => {
-  const h = harness("content");
-  h.receive("begin");
-  const promise = h.bridge.flush();
-  h.receive("blocked", { requestId: h.sent.at(-1).requestId });
-  await assert.rejects(promise, /dialoger/);
-  assert.equal(h.bridge.editing, true);
-  h.bridge.disconnect();
-});
-
-function harness(field = "title", media) {
-  const bridge = new Bridge(field);
+function harness() {
+  const bridge = new Bridge();
   const sent = [],
     changed = [];
   const frame = {
@@ -81,14 +36,12 @@ function harness(field = "title", media) {
     pageId: 7,
     postId: 7,
     title: "Working title",
-    content: "Working\ncontent",
     writable: true,
     busy: false,
   };
   const configure = () =>
     bridge.configure({
       state: { ...state },
-      media,
       change: (value) => changed.push(value),
       select: async () => {
         selected++;
@@ -105,7 +58,7 @@ function harness(field = "title", media) {
       origin: "https://nora.test",
       source: frame.contentWindow,
       data: {
-        channel: `forma-${field}`,
+        channel: "forma-title",
         version: 1,
         documentId: "document-a",
         sequence: ++sequence,
@@ -159,7 +112,7 @@ test("replacing the frame rejects an unacknowledged save instead of publishing s
   const h = harness();
   const promise = h.bridge.flush();
   h.bridge.attach(null);
-  await assert.rejects(promise, /Inline-redigeringen/);
+  await assert.rejects(promise, /Kontakt/);
   h.receive("change", { title: "stale" });
   assert.deepEqual(h.changed, []);
 });

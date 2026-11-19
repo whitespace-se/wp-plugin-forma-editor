@@ -10,7 +10,6 @@ import { Autosave } from "./Autosave";
 import { observePostLock } from "../wordpress/locks";
 import { LockDialog } from "./LockDialog";
 import { ContentEditor } from "./ContentEditor";
-import { inlineMedia } from "./inlineMedia";
 import { PublishControls } from "./PublishControls";
 import { NavigationFields } from "./NavigationFields";
 import type { PreviewBridge } from "./PreviewBridge";
@@ -36,7 +35,6 @@ export interface EditorConfig {
 
 export interface SessionProps {
   bridge: PreviewBridge;
-  contentBridge: PreviewBridge;
   initialSection?: string | null;
   onPreview: (url: string) => void;
   onSwitch: (module: number, section: string | null) => Promise<void>;
@@ -44,7 +42,6 @@ export interface SessionProps {
 
 export function Editor({
   bridge,
-  contentBridge,
   pageId,
   postId,
   editorMarkup,
@@ -67,9 +64,7 @@ export function Editor({
   const [section, setSection] = useState<string | null>(
     parentUrl ? "content" : (initialSection ?? null),
   );
-  const [contentOpened, setContentOpened] = useState(
-    Boolean(parentUrl) || initialSection === "content",
-  );
+  const [contentOpened, setContentOpened] = useState(Boolean(parentUrl));
   const [navigationOpened, setNavigationOpened] = useState(false);
   const panelRef = useRef<HTMLElement>(null);
   const lastSection = useRef<string | null>(null);
@@ -204,14 +199,12 @@ export function Editor({
   }
 
   async function refreshPreview() {
-    if (bridge.editing || contentBridge.editing) return;
+    if (bridge.editing) return;
     const request = ++previewRequest.current;
     try {
       await queue.current?.flush();
       if (
         mounted.current &&
-        !bridge.editing &&
-        !contentBridge.editing &&
         !acting.current &&
         request === previewRequest.current &&
         previewDirty.current &&
@@ -248,8 +241,6 @@ export function Editor({
     setError("");
     previewRequest.current++;
     try {
-      if (bridge.editing) await bridge.flush();
-      await contentBridge.flush();
       await queue.current?.flush();
       await onSwitch(module, section);
       release();
@@ -272,10 +263,8 @@ export function Editor({
     setError("");
     failedOperation.current = undefined;
     try {
-      if (operation === "publish" || operation === "draft") {
-        await contentBridge.flush();
+      if (operation === "publish" || operation === "draft")
         await bridge.flush();
-      }
       if (
         operation === "publish" ||
         operation === "draft" ||
@@ -483,35 +472,6 @@ export function Editor({
         if (!(await switchObject(0, "content")))
           throw new Error("Object switch failed");
       },
-      leave: () => {
-        void refreshPreview();
-      },
-    });
-    contentBridge.configure({
-      state: {
-        pageId,
-        postId,
-        title: input.title,
-        content: input.content,
-        busy,
-        writable: Boolean(
-          state &&
-          saver &&
-          !state.lockOwner &&
-          !state.autosave?.otherChanges &&
-          !authError,
-        ),
-      },
-      change: (content) => editField("content", content, true),
-      select: async () => {
-        if (!(await switchObject(0, "content")))
-          throw new Error("Object switch failed");
-      },
-      panel: () => {
-        if (postId === pageId) navigate("content");
-        else void switchObject(0, "content");
-      },
-      media: inlineMedia,
       leave: () => {
         void refreshPreview();
       },
@@ -743,13 +703,6 @@ export function Editor({
               errorLabel={labels.editorError}
               onChange={(value) => editField("content", value)}
               onLeave={() => void refreshPreview()}
-              beforeEnter={() => {
-                if (!contentBridge.editing) return null;
-                return contentBridge.flush().catch((failure: Error) => {
-                  setError(failure.message);
-                  throw failure;
-                });
-              }}
             />
           )}
         </div>
