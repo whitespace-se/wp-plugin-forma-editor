@@ -6,6 +6,7 @@ import React, {
   useState,
 } from "react";
 import { createRoot } from "react-dom/client";
+import { createPortal } from "react-dom";
 import "./style.css";
 
 // The installed WordPress owns these packages and React. Do not bundle a second
@@ -85,7 +86,18 @@ class Boundary extends React.Component<
   }
 }
 
-export function start(config: Config) {
+export function start(
+  previewWindow: Window,
+  config: Config,
+  transmit: (message: unknown, origin: string) => void,
+) {
+  const hostDocument = globalThis.document;
+  const window = previewWindow;
+  const document = window.document;
+  const parent = window.parent;
+  // Same-origin documents share one host-owned React/Gutenberg instance.
+  // Portals retain the provider/store while keeping all tools outside scaling.
+  if (document.location.origin !== hostDocument.location.origin) return;
   const install = () => {
     const matches = document.querySelectorAll<HTMLElement>(
       `#forma-block-content[data-forma-post="${config.pageId}"]`,
@@ -94,6 +106,9 @@ export function start(config: Config) {
     const area = matches[0];
     const rendered = area.querySelector<HTMLElement>("[data-forma-rendered]")!;
     const mount = area.querySelector<HTMLElement>("[data-forma-block-mount]")!;
+    const tools = hostDocument.getElementById("forma-block-tools")!;
+    const settingsTarget = hostDocument.getElementById("forma-block-settings")!;
+    if (!tools || !settingsTarget) return;
     const root = createRoot(mount);
     const documentId = crypto.randomUUID();
     let sequence = 0;
@@ -116,7 +131,7 @@ export function start(config: Config) {
     notice.hidden = true;
     area.before(notice);
     const send = (type: string, extra: Record<string, unknown> = {}) =>
-      parent.postMessage(
+      transmit(
         {
           channel: "forma-content",
           version: 1,
@@ -154,10 +169,14 @@ export function start(config: Config) {
       send(requestId ? "flushed" : "end", { content: current, requestId });
     };
     const owns = (target: EventTarget | null) =>
-      target instanceof Element &&
+      target !== null &&
+      "nodeType" in target &&
+      (target as Node).nodeType === 1 &&
       Boolean(
-        area.contains(target) ||
-        target.closest(
+        area.contains(target as Node) ||
+        tools.contains(target as Node) ||
+        settingsTarget.contains(target as Node) ||
+        (target as Element).closest(
           ".components-popover, .components-modal__screen-overlay, .media-modal, .media-modal-backdrop",
         ),
       );
@@ -304,44 +323,60 @@ export function start(config: Config) {
                 }
               }}
             >
-              <div
-                className="forma-block-toolbar"
-                role="region"
-                aria-label="Innehållsverktyg"
-              >
-                <Inserter />
-                <Button
-                  onClick={() => undo(-1)}
-                  disabled={history.current.index === 0}
-                >
-                  Ångra
-                </Button>
-                <Button
-                  onClick={() => undo(1)}
-                  disabled={
-                    history.current.index === history.current.values.length - 1
-                  }
-                >
-                  Gör om
-                </Button>
-                <Button
-                  isPressed={inspector}
-                  onClick={() => setInspector(!inspector)}
-                >
-                  Blockinställningar
-                </Button>
-                <Button onClick={() => finish()}>Klart</Button>
-                <BlockToolbar />
-              </div>
-              {inspector && (
+              {createPortal(
                 <div
-                  className="forma-block-inspector"
+                  className="forma-block-toolbar"
                   role="region"
-                  aria-label="Blockinställningar"
+                  aria-label="Innehållsverktyg"
                 >
-                  <BlockInspector />
-                </div>
+                  <Inserter />
+                  <Button
+                    onClick={() => undo(-1)}
+                    disabled={history.current.index === 0}
+                  >
+                    Ångra
+                  </Button>
+                  <Button
+                    onClick={() => undo(1)}
+                    disabled={
+                      history.current.index ===
+                      history.current.values.length - 1
+                    }
+                  >
+                    Gör om
+                  </Button>
+                  <Button
+                    isPressed={inspector}
+                    onClick={() => setInspector(!inspector)}
+                  >
+                    Blockinställningar
+                  </Button>
+                  <Button
+                    onClick={(event: React.MouseEvent) => {
+                      event.stopPropagation();
+                      finish();
+                    }}
+                  >
+                    Klart
+                  </Button>
+                  <BlockToolbar />
+                </div>,
+                tools,
               )}
+              {inspector &&
+                createPortal(
+                  <div
+                    className="forma-block-inspector"
+                    role="region"
+                    aria-label="Blockinställningar"
+                  >
+                    <Button onClick={() => setInspector(false)}>
+                      Stäng blockinställningar
+                    </Button>
+                    <BlockInspector />
+                  </div>,
+                  settingsTarget,
+                )}
               {invalid && (
                 <p role="alert">
                   Blocket stöds inte i detta prov. Ångra ändringen innan du
@@ -359,7 +394,7 @@ export function start(config: Config) {
                 </WritingFlow>
               </BlockTools>
             </div>
-            <Popover.Slot />
+            {createPortal(<Popover.Slot />, tools)}
           </BlockEditorProvider>
         </SlotFillProvider>
       );
@@ -413,7 +448,7 @@ export function start(config: Config) {
     }
 
     area.addEventListener("click", (event) => {
-      if (!active) {
+      if (!active && !mount.contains(event.target as Node)) {
         event.preventDefault();
         event.stopPropagation();
         begin();
@@ -458,7 +493,8 @@ export function start(config: Config) {
     window.addEventListener("blur", () => {
       if (active && !mediaOpen)
         setTimeout(() => {
-          if (!document.hasFocus()) finish();
+          if (!document.hasFocus() && !owns(hostDocument.activeElement))
+            finish();
         }, 0);
     });
     window.addEventListener("message", (event) => {
@@ -489,6 +525,8 @@ export function start(config: Config) {
         outline.hidden = !next.writable;
         // Preserve unsaved local content after lock loss, but stop all editing.
         mount.inert = !next.writable || next.postId !== config.pageId;
+        tools.inert = mount.inert;
+        settingsTarget.inert = mount.inert;
         if (!active && data.acknowledged >= sequence) current = data.content;
       } else if (data.type === "begin") activate();
       else if (data.type === "flush" && typeof data.requestId === "string") {
@@ -501,11 +539,19 @@ export function start(config: Config) {
       () => send("ready", { pageId: config.pageId }),
       500,
     );
+    const hostOutside = (event: Event) => {
+      if (active && !owns(event.target) && event.target !== window.frameElement)
+        finish();
+    };
+    hostDocument.addEventListener("pointerdown", hostOutside, true);
     window.addEventListener(
       "pagehide",
       () => {
         clearInterval(readyTimer);
         root.unmount();
+        hostDocument.removeEventListener("pointerdown", hostOutside, true);
+        tools.inert = false;
+        settingsTarget.inert = false;
       },
       { once: true },
     );

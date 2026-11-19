@@ -74,13 +74,16 @@ export function Workspace({ initial }: { initial: EditorConfig }) {
       className={`forma-editor__workspace${resizing ? " forma-editor__workspace--resizing" : ""}`}
       style={{ gridTemplateColumns: `minmax(0, 1fr) min(${width}px, 90vw)` }}
     >
-      <iframe
-        ref={frameRef}
-        key={preview.version}
-        className="forma-editor__preview"
-        src={preview.url}
-        title={initial.labels.preview}
-      />
+      <div className="forma-editor__canvas">
+        <div id="forma-block-tools" />
+        <iframe
+          ref={frameRef}
+          key={preview.version}
+          className="forma-editor__preview"
+          src={preview.url}
+          title={initial.labels.preview}
+        />
+      </div>
       <PanelResize
         width={width}
         label={initial.labels.panelWidth}

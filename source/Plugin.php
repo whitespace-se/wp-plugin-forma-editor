@@ -116,6 +116,7 @@ final class Plugin
         $editor_markup = ob_get_clean();
         // Load the page's ACF assets even when entering through a module URL.
         $navigation_markup = NavigationFields::markup($page->ID);
+        Blocks::enqueue_host($page->ID);
         wp_enqueue_script('forma-editor');
         wp_enqueue_style('forma-editor');
         wp_add_inline_script('forma-editor', 'FormaEditor.start(' . wp_json_encode([

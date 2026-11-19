@@ -22,7 +22,7 @@ final class Blocks
         $context = new \WP_Block_Editor_Context(['post' => $post, 'name' => 'forma/block-trial']);
         $settings = get_block_editor_settings([], $context);
         // These HTML strings are for core's nested editor iframe, which Forma
-        // does not mount. Resources are enqueued in our preview document instead.
+        // does not mount. Runtime and canvas styles are enqueued separately.
         // Sending the unused script markup also exposes JSON to HTML asset rewriters.
         unset($settings['__unstableResolvedAssets']);
         // Both list and list-item are needed by current core's nested lists.
@@ -32,7 +32,25 @@ final class Blocks
         $settings['codeEditingEnabled'] = false;
         $settings['__experimentalCanUserUseUnfilteredHTML'] = false;
         $settings['enableOpenverseMediaCategory'] = false;
-        wp_enqueue_media(['post' => $id]);
+        $url = plugin_dir_url(FORMA_EDITOR_FILE);
+        wp_enqueue_style('forma-block-canvas', $url . 'build/blocks.css', ['wp-block-library', 'wp-block-editor', 'wp-components'], (string) filemtime(dirname(__DIR__) . '/build/blocks.css'));
+        wp_register_script('forma-block-preview', false, [], null, true);
+        wp_enqueue_script('forma-block-preview');
+        wp_add_inline_script('forma-block-preview', 'window.parent.FormaBlocks.start(window,' . wp_json_encode([
+            'pageId' => $id,
+            'origin' => Plugin::editor_origin(),
+            'nonce' => wp_create_nonce('wp_rest'),
+            'settings' => $settings,
+            'categories' => get_block_categories($context),
+        // Define the sender in the preview realm so MessageEvent.source remains
+        // the preview window even though React and Gutenberg execute in the host.
+        ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) . ',function(message,origin){window.parent.postMessage(message,origin);});');
+    }
+
+    public static function enqueue_host(int $id): void
+    {
+        if (!self::enabled($id)) return;
+        require_once ABSPATH . 'wp-admin/includes/post.php';
         wp_enqueue_script('wp-format-library');
         wp_add_inline_script('wp-blocks', 'wp.blocks.unstable__bootstrapServerSideBlockDefinitions(' . wp_json_encode(get_block_editor_server_block_settings(), JSON_HEX_TAG | JSON_UNESCAPED_SLASHES) . ');');
         $url = plugin_dir_url(FORMA_EDITOR_FILE) . 'build/';
@@ -44,12 +62,7 @@ final class Blocks
         wp_enqueue_style('forma-blocks', $url . 'blocks.css', [
             'wp-components', 'wp-block-editor', 'wp-block-library',
         ], (string) filemtime($dir . 'blocks.css'));
-        wp_add_inline_script('forma-blocks', 'FormaBlocks.start(' . wp_json_encode([
-            'pageId' => $id,
-            'origin' => Plugin::editor_origin(),
-            'nonce' => wp_create_nonce('wp_rest'),
-            'settings' => $settings,
-            'categories' => get_block_categories($context),
-        ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) . ');');
+        // The host runtime must exist before React creates the preview iframe.
+        wp_scripts()->registered['forma-editor']->deps[] = 'forma-blocks';
     }
 }

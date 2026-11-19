@@ -15,15 +15,19 @@ test(
     const dom = new JSDOM(readFileSync(process.env.FORMA_TEST_HTML, "utf8"));
     try {
       const script = dom.window.document.getElementById(
-        "forma-blocks-js-after",
+        "forma-block-preview-js-after",
       );
       assert.ok(script, "Block bootstrap must be delivered");
       assert.doesNotThrow(() => new Script(script.textContent));
       let config;
       new Script(script.textContent).runInNewContext({
-        FormaBlocks: {
-          start: (value) => {
-            config = value;
+        window: {
+          parent: {
+            FormaBlocks: {
+              start: (_frame, value) => {
+                config = value;
+              },
+            },
           },
         },
       });

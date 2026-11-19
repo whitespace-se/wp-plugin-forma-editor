@@ -583,6 +583,7 @@ export function Editor({
             </div>
           )}
         </div>
+        {blockContent && <div id="forma-block-settings" />}
         {state ? (
           <PublishControls
             hidden={!parentUrl && section !== null}
