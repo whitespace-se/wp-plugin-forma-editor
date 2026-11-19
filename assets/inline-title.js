@@ -29,7 +29,7 @@
     title.dataset.formaEditing = String(editing);
     overlay.dataset.editing = String(editing);
     const editable =
-      state?.writable && state.postId === config.pageId
+      editing && state?.writable && state.postId === config.pageId
         ? "plaintext-only"
         : "false";
     if (title.contentEditable !== editable) title.contentEditable = editable;
@@ -44,12 +44,13 @@
     }
     send("begin");
   };
-  const finish = (cancel = false, keepFocus = false) => {
+  const finish = (cancel = false, releaseFocus = false) => {
     if (!editing || composing) return;
     if (cancel) display(startValue);
     editing = false;
     paint();
-    send("end", { title: value(), keepFocus });
+    if (releaseFocus) title.blur();
+    send("end", { title: value() });
   };
   const flushed = (requestId) => {
     if (composing) {
@@ -110,10 +111,6 @@
       suppressFocus = true;
       title.focus({ preventScroll: true });
       suppressFocus = false;
-    } else if (data.type === "focus") {
-      suppressFocus = true;
-      title.focus({ preventScroll: true });
-      suppressFocus = false;
     } else if (data.type === "flush" && typeof data.requestId === "string") {
       flushed(data.requestId);
     }
@@ -159,7 +156,6 @@
           return;
         }
         if (type === "focusin") {
-          overlay.dataset.focus = "true";
           if (!suppressFocus) begin();
         }
         if (type === "click") begin();
@@ -222,7 +218,6 @@
           send("change", { title: value() });
         }
         if (type === "focusout") {
-          overlay.dataset.focus = "false";
           finish();
         }
       },

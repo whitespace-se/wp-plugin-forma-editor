@@ -144,3 +144,19 @@ test("lock loss prevents input and Escape sends the initial value through the sa
   assert.equal(h.changed.at(-1), "Working title");
   h.bridge.disconnect();
 });
+
+test("a refreshed preview is initialized without restoring title focus or editing", () => {
+  const h = harness();
+  h.receive("begin");
+  h.receive("end", { title: "Finished title" });
+  h.bridge.attach(null);
+  h.bridge.attach(h.frame);
+  h.sent.length = 0;
+  h.receive("ready", { pageId: 7, documentId: "document-b" });
+  assert.deepEqual(
+    h.sent.map((message) => message.type),
+    ["state"],
+  );
+  assert.equal(h.bridge.editing, false);
+  h.bridge.disconnect();
+});

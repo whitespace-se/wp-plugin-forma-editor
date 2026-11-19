@@ -33,6 +33,11 @@ function harness() {
       document.activeElement = this;
       emit("focusin");
     }
+    blur() {
+      if (document.activeElement !== this) return;
+      document.activeElement = null;
+      emit("focusout");
+    }
   }
   const title = new Element();
   document.currentScript = {
@@ -121,16 +126,19 @@ test("input preserves trailing spaces, ignores stale echoes and Escape restores 
   assert.equal(h.sent.at(-1).title, "Working title");
 });
 
-test("Enter ends without restarting, Enter again resumes, and Tab remains native", () => {
+test("Enter removes focus and editability; focusing again resumes and Tab remains native", () => {
   const h = harness();
   h.title.focus();
   assert.equal(h.emit("keydown", { key: "Enter" }).defaultPrevented, true);
   assert.equal(h.title.dataset.formaEditing, "false");
+  assert.equal(h.title.contentEditable, "false");
+  assert.equal(h.document.activeElement, null);
+  assert.equal(h.overlays[0].dataset.editing, "false");
   assert.equal(
     h.emit("beforeinput", { inputType: "insertText" }).defaultPrevented,
     true,
   );
-  h.emit("keydown", { key: "Enter" });
+  h.title.focus();
   assert.equal(h.title.dataset.formaEditing, "true");
   assert.equal(h.emit("keydown", { key: "Tab" }).defaultPrevented, false);
 });

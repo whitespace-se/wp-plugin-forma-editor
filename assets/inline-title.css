@@ -28,12 +28,10 @@
   opacity: 0.45;
 }
 .forma-inline-title-outline[data-hover="true"],
-.forma-inline-title-outline[data-focus="true"],
 .forma-inline-title-outline[data-editing="true"] {
   opacity: 1;
 }
-.forma-inline-title-outline[data-editing="true"],
-.forma-inline-title-outline[data-focus="true"] {
+.forma-inline-title-outline[data-editing="true"] {
   outline: none;
   border: 1px solid transparent;
   padding: 4px;

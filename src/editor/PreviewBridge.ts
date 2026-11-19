@@ -23,8 +23,6 @@ export class PreviewBridge {
   private handlers?: Handlers;
   private active = false;
   private resume = false;
-  private focus = false;
-  private focusDocument = "";
   private leaveTimer?: ReturnType<typeof setTimeout>;
   private pending?: {
     id: string;
@@ -88,9 +86,6 @@ export class PreviewBridge {
       this.resume = false;
       this.active = true;
       this.send("begin");
-    } else if (this.focus && this.focusDocument !== this.documentId) {
-      this.focus = false;
-      this.send("focus");
     }
   }
 
@@ -131,7 +126,6 @@ export class PreviewBridge {
     if (data.type === "begin") {
       if (!state.writable || state.busy) return;
       this.cancelRefresh();
-      this.focus = false;
       if (state.postId !== state.pageId) {
         this.resume = true;
         void select().catch(() => {
@@ -168,8 +162,6 @@ export class PreviewBridge {
           this.pending = undefined;
         }
       } else {
-        this.focus = data.keepFocus === true;
-        this.focusDocument = this.documentId;
         // Let a click in the host reach Save before refreshing the iframe.
         this.cancelRefresh();
         this.leaveTimer = setTimeout(() => {
@@ -187,7 +179,6 @@ export class PreviewBridge {
 
   async flush() {
     this.cancelRefresh();
-    this.focus = false;
     if (
       !this.documentId ||
       this.handlers?.state.postId !== this.handlers?.state.pageId
