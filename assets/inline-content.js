@@ -239,6 +239,9 @@
         inline: true,
         readonly: true,
         fixed_toolbar_container: "#forma-inline-toolbar",
+        // These actions share the editing session. Native button focus must
+        // not trigger TinyMCE blur and collapse the toolbar before click.
+        custom_ui_selector: ".forma-content-actions",
         menubar: false,
         toolbar1:
           "formatselect bold italic bullist numlist blockquote link unlink image wp_more undo redo",
@@ -416,10 +419,10 @@
     outline.hidden = true;
     outline.setAttribute("aria-hidden", "true");
     tools = document.createElement("div");
-    tools.className = "forma-inline-content-tools";
+    tools.className = "forma-inline-content-tools wp-core-ui";
     tools.hidden = true;
     tools.innerHTML =
-      '<div class="forma-content-actions"><strong>Huvudinnehåll</strong><button type="button" class="button forma-add-media">Lägg till media</button><button type="button" class="button-link forma-open-panel">Redigera i panelen</button></div><p class="forma-content-error" role="status" hidden></p><div id="forma-inline-toolbar"></div>';
+      '<div class="forma-content-actions"><strong>Huvudinnehåll</strong><button type="button" class="button forma-add-media">Lägg till media</button><button type="button" class="button forma-open-panel">Redigera i panelen</button></div><p class="forma-content-error" role="status" hidden></p><div id="forma-inline-toolbar"></div>';
     message = tools.querySelector(".forma-content-error");
     document.body.append(outline, tools);
     new ResizeObserver(() =>

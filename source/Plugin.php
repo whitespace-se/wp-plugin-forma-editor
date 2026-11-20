@@ -343,7 +343,7 @@ final class Plugin
             add_filter('tiny_mce_before_init', $capture, PHP_INT_MAX, 2);
             // wp_editor prints these into its markup on the frontend. Emit
             // them before discarding that markup, or WP marks lost CSS done.
-            wp_print_styles('editor-buttons');
+            wp_print_styles(['buttons', 'editor-buttons']);
             ob_start();
             try {
                 wp_editor('', 'forma-inline-source', [

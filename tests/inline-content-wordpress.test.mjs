@@ -251,6 +251,18 @@ for (const missingSettings of [true, false])
             "#forma-inline-toolbar .mce-toolbar",
           );
           assert.ok(toolbar, "every unchanged reopening creates a toolbar");
+          for (const action of w.document.querySelectorAll(
+            ".forma-content-actions button",
+          )) {
+            surface.focus();
+            action.focus();
+            await new Promise((resolve) => w.setTimeout(resolve, 30));
+            assert.equal(
+              w.tinymce.focusedEditor?.id,
+              "forma-inline-content",
+              "custom action focus remains part of the editor UI",
+            );
+          }
           const button = toolbar.querySelector("button");
           button.focus();
           receive({

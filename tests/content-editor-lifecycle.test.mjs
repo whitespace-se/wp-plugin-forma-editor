@@ -81,6 +81,10 @@ test(
             "const React = window.React; const {useEffect,useLayoutEffect,useRef,useState} = React;",
           )
           .replace(
+            /import .*? from "react-dom";/,
+            "const {createPortal} = window.ReactDOM;",
+          )
+          .replace(
             "export function ContentEditor",
             "window.ContentEditor = function ContentEditor",
           ),
