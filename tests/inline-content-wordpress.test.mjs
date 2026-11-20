@@ -216,6 +216,10 @@ for (const missingSettings of [true, false])
           "true",
         );
         assert.equal(w.tinymce.translate("Bold"), "Fet");
+        assert.ok(
+          w.document.querySelector("#forma-inline-toolbar .mce-toolbar"),
+          "first activation renders the toolbar",
+        );
         assert.deepEqual(
           scriptRequests,
           [],
@@ -234,10 +238,48 @@ for (const missingSettings of [true, false])
           "no-op preserves exact original bytes",
         );
         assert.equal(surface.textContent, "Theme-generated content");
+        assert.ok(
+          w.document.getElementById("forma-inline-toolbar"),
+          "toolbar mount survives teardown",
+        );
+        for (let cycle = 0; cycle < 3; cycle++) {
+          surface.focus();
+          surface.click();
+          receive({ type: "begin" });
+          await new Promise((resolve) => w.setTimeout(resolve, 30));
+          const toolbar = w.document.querySelector(
+            "#forma-inline-toolbar .mce-toolbar",
+          );
+          assert.ok(toolbar, "every unchanged reopening creates a toolbar");
+          const button = toolbar.querySelector("button");
+          button.focus();
+          receive({
+            type: "state",
+            pageId: 7,
+            postId: 7,
+            content: source,
+            writable: true,
+            busy: false,
+            inlineEnabled: true,
+            acknowledged: sent.at(-1).sequence,
+          });
+          assert.equal(
+            w.document.activeElement,
+            button,
+            "state acknowledgements preserve toolbar focus",
+          );
+          receive({ type: "flush", requestId: `repeat-${cycle}` });
+          assert.equal(sent.at(-1).content, source);
+        }
+        surface.focus();
         surface.click();
         receive({ type: "begin" });
         await new Promise((resolve) => w.setTimeout(resolve, 30));
         const inline = w.tinymce.get("forma-inline-content");
+        assert.ok(
+          w.document.querySelector("#forma-inline-toolbar .mce-toolbar"),
+          "second activation renders the toolbar without a frame reload",
+        );
         inline.insertContent("Ändrat ");
         inline.fire("input");
         assert.equal(sent.at(-1).type, "change");

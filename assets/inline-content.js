@@ -86,9 +86,11 @@
     tools.hidden = !editing && !message.textContent;
     tools.querySelector(".forma-add-media").disabled =
       !editing || !writable() || state.busy;
-    editor?.setMode(
-      writable() && !state.busy && editing ? "design" : "readonly",
-    );
+    const readonly = !writable() || state.busy || !editing;
+    // TinyMCE's setMode("design") focuses the body. State acknowledgements
+    // must not steal focus from toolbar controls or reopen hidden chrome.
+    if (editor?.initialized && editor.readonly !== readonly)
+      editor.setMode(readonly ? "readonly" : "design");
   };
   const value = () => {
     const html = editor.getContent();
@@ -204,6 +206,10 @@
       return;
     original = state.content;
     last = original;
+    // The activation click already focused this tabindex surface. TinyMCE
+    // builds its inline toolbar on a fresh focus event, after init; without
+    // blurring first, reopening in the same document may never create it.
+    surface.blur();
     rendered = document.createDocumentFragment();
     while (surface.firstChild) rendered.append(surface.firstChild);
     // Show the editable source while TinyMCE finishes loading its skin.
