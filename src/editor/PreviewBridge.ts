@@ -3,6 +3,7 @@ export interface InlineState {
   postId: number;
   title: string;
   content?: string;
+  inlineEnabled?: boolean;
   writable: boolean;
   busy: boolean;
 }
@@ -14,6 +15,7 @@ interface Handlers {
   leave: () => void;
   panel?: () => void;
   media?: () => Promise<string | null>;
+  prepare?: () => void;
 }
 
 /** The iframe owns selection/composition; only the host owns persistence.
@@ -37,6 +39,21 @@ export class PreviewBridge {
 
   get editing() {
     return this.active;
+  }
+
+  start() {
+    if (
+      !this.documentId ||
+      !this.handlers?.state.writable ||
+      this.handlers.state.busy
+    )
+      return false;
+    this.handlers.prepare?.();
+    this.cancelRefresh();
+    this.active = true;
+    this.sync();
+    this.send("begin");
+    return true;
   }
 
   attach(frame: HTMLIFrameElement | null) {
@@ -171,8 +188,7 @@ export class PreviewBridge {
           this.sync();
         });
       } else {
-        this.active = true;
-        this.send("begin");
+        this.start();
       }
       return;
     }

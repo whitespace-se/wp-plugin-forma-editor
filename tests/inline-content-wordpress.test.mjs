@@ -145,11 +145,18 @@ for (const missingSettings of [true, false])
           content: source,
           writable: true,
           busy: false,
+          inlineEnabled: false,
           acknowledged: sent.at(-1).sequence,
         });
         const surface = w.document.getElementById("forma-inline-content");
         w.tinyMCEPreInit = undefined;
         w.wp.editor.getDefaultSettings = undefined;
+        surface.focus();
+        assert.equal(
+          w.tinymce.get("forma-inline-content"),
+          null,
+          "focus alone does not restart editing",
+        );
         surface.click();
         if (missingSettings) {
           assert.equal(
@@ -167,6 +174,23 @@ for (const missingSettings of [true, false])
           );
           return;
         }
+        assert.equal(sent.at(-1).type, "begin");
+        assert.equal(
+          surface.textContent,
+          "Theme-generated content",
+          "preview stays intact until the panel relinquishes ownership",
+        );
+        receive({
+          type: "state",
+          pageId: 7,
+          postId: 7,
+          content: source,
+          writable: true,
+          busy: false,
+          inlineEnabled: true,
+          acknowledged: sent.at(-1).sequence,
+        });
+        receive({ type: "begin" });
         await new Promise((resolve) => w.setTimeout(resolve, 30));
         assert.equal(
           w.document.querySelector(".forma-inline-content-outline").dataset
@@ -182,6 +206,7 @@ for (const missingSettings of [true, false])
         );
         assert.equal(surface.textContent, "Theme-generated content");
         surface.click();
+        receive({ type: "begin" });
         await new Promise((resolve) => w.setTimeout(resolve, 30));
         const inline = w.tinymce.get("forma-inline-content");
         inline.insertContent("Ändrat ");

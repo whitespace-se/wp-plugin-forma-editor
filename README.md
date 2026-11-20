@@ -5,9 +5,11 @@ post titles and classic-editor content alongside a site preview. It uses
 WordPress autosaves, revisions, editing locks and draft/published states. This
 alpha also includes inline page-title editing in Municipio previews, selected
 ACF navigation and color-theme fields, and separate editing of existing
-Modularity text modules. Inline body editing, general ACF/module support and
-Gutenberg integration are not included. Use the classic editor for unsupported
-fields and publishing options.
+Modularity text modules. This experimental branch adds inline body editing from
+the original field source, with a mutually exclusive panel editor for
+Visual/Code editing. Unsupported source stays in the panel. General ACF/module
+support and Gutenberg integration are not included. Use the classic editor for
+unsupported fields and publishing options.
 
 ## Development
 

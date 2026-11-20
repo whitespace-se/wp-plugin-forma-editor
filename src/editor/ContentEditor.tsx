@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 let instanceSequence = 0;
 
@@ -44,6 +44,7 @@ export function ContentEditor({
   onChange,
   onLeave,
   beforeEnter,
+  flushRef,
 }: {
   markup: string;
   wpautop: boolean;
@@ -54,6 +55,7 @@ export function ContentEditor({
   onChange: (content: string) => void;
   onLeave: () => void;
   beforeEnter: () => Promise<void> | null;
+  flushRef?: React.MutableRefObject<(() => void) | null>;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const callbacks = useRef({ onChange, onLeave, disabled, beforeEnter });
@@ -66,7 +68,7 @@ export function ContentEditor({
   const latest = useRef(initialContent);
   latest.current = initialContent;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const node = host.current!;
     const core = window as unknown as CoreEditor;
     // Unique per effect lifetime, including StrictMode remounts: a delayed
@@ -120,6 +122,13 @@ export function ContentEditor({
       lastVisual = html;
       emit();
     };
+    if (flushRef)
+      flushRef.current = () => {
+        // A placement change must not serialize an untouched visual editor:
+        // TinyMCE may normalize source even when the author made no change.
+        if (editor && !editor.isHidden()) visualChange();
+        else if (textarea.value !== lastValue) emit();
+      };
     sync.current = (value) => {
       if (value === lastValue) return;
       changingExternally = true;
@@ -235,6 +244,7 @@ export function ContentEditor({
     }
     return () => {
       alive = false;
+      if (flushRef) flushRef.current = null;
       sync.current = null;
       chromeObserver.disconnect();
       sizeObserver?.disconnect();

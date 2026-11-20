@@ -68,7 +68,10 @@
   const canEdit = () =>
     Boolean(
       surface &&
-      window.tinymce &&
+      window.tinymce?.ThemeManager.get("modern") &&
+      ["wordpress", "lists", "paste", "link", "image"].every((name) =>
+        window.tinymce.PluginManager.get(name),
+      ) &&
       window.wp?.editor?.autop &&
       CSS.supports("position-anchor", "--forma-content") &&
       CSS.supports("top", "anchor(top)") &&
@@ -156,7 +159,7 @@
     );
     send("end", { content: original });
   };
-  const begin = () => {
+  const begin = (authorized = false) => {
     if (editing || starting || !state?.writable || state.busy) return;
     if (state.postId !== config.pageId) {
       send("begin");
@@ -166,6 +169,7 @@
       error(
         "Innehållet behöver redigeras i panelen för att bevara originalkoden.",
       );
+      if (authorized === true) send("end", { content: state.content });
       return;
     }
     // Resolve dependencies before moving any visible content. Missing or
@@ -175,6 +179,13 @@
       error(
         "Editorn kunde inte laddas. Innehållet är oförändrat. Ladda om sidan eller använd panelen.",
       );
+      if (authorized === true) send("end", { content: state.content });
+      return;
+    }
+    // The host first unmounts its editor and transfers the current source.
+    // Merely clicking or focusing this surface never grants ownership.
+    if (authorized !== true || !state.inlineEnabled) {
+      send("begin");
       return;
     }
     if (
@@ -192,13 +203,15 @@
     last = original;
     rendered = document.createDocumentFragment();
     while (surface.firstChild) rendered.append(surface.firstChild);
+    // Show the editable source while TinyMCE finishes loading its skin.
+    // Keep the filtered subtree separately for a failed or unchanged session.
+    surface.innerHTML = window.wp.editor.autop(original);
     starting = true;
     const currentGeneration = ++generation;
     startTimer = setTimeout(() => {
       if (starting && generation === currentGeneration) fallback();
     }, 10000);
     message.textContent = "";
-    send("begin");
     try {
       const initialization = window.tinymce.init({
         ...defaults,
@@ -330,7 +343,7 @@
           : data;
       clearInterval(readyTimer);
       paint();
-    } else if (data.type === "begin") begin();
+    } else if (data.type === "begin") begin(true);
     else if (data.type === "flush") finish(data.requestId);
     else if (
       data.type === "media" &&
@@ -413,7 +426,6 @@
       event.preventDefault();
       if (!editing) begin();
     });
-    surface.addEventListener("focus", begin);
     surface.addEventListener("keydown", (event) => {
       if (!editing && ["Enter", " "].includes(event.key)) {
         event.preventDefault();

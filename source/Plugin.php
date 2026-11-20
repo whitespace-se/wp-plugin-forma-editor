@@ -355,6 +355,17 @@ final class Plugin
                 ob_end_clean();
                 remove_filter('tiny_mce_before_init', $capture, PHP_INT_MAX);
             }
+            // TinyMCE's dynamic loader does not inherit WordPress's CSP nonce.
+            // Print the complete, fixed inline-editor dependency set through
+            // WordPress after core, before any editor can start (also in debug).
+            add_action('wp_tiny_mce_init', static function (): void {
+                global $tinymce_version;
+                foreach (['themes/modern/theme', 'plugins/wordpress/plugin', 'plugins/lists/plugin', 'plugins/paste/plugin', 'plugins/link/plugin', 'plugins/image/plugin'] as $script) {
+                    wp_print_script_tag([
+                        'src' => add_query_arg('ver', (string) $tinymce_version, includes_url('js/tinymce/' . $script . '.min.js')),
+                    ]);
+                }
+            });
             foreach (['inline-content-policy.js', 'inline-content.js'] as $file) {
                 wp_print_script_tag([
                     'src' => add_query_arg('ver', (string) filemtime($assets . $file), $base . $file),

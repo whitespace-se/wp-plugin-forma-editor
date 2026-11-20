@@ -65,7 +65,7 @@ test("an open dialog blocks publication rather than acknowledging stale content"
   h.bridge.disconnect();
 });
 
-function harness(field = "title", media) {
+function harness(field = "title", media, prepare) {
   const bridge = new Bridge(field);
   const sent = [],
     changed = [];
@@ -89,6 +89,7 @@ function harness(field = "title", media) {
     bridge.configure({
       state: { ...state },
       media,
+      prepare,
       change: (value) => changed.push(value),
       select: async () => {
         selected++;
@@ -127,6 +128,22 @@ function harness(field = "title", media) {
     left: () => left,
   };
 }
+
+test("content activation acknowledges only after panel teardown and fresh state", () => {
+  const h = harness("content", undefined, () => {
+    assert.equal(h.bridge.editing, false);
+    h.state.content = "Last panel keystroke";
+    h.state.inlineEnabled = true;
+    h.configure();
+  });
+  h.receive("begin");
+  assert.equal(h.sent.at(-2).type, "state");
+  assert.equal(h.sent.at(-2).content, "Last panel keystroke");
+  assert.equal(h.sent.at(-2).inlineEnabled, true);
+  assert.equal(h.sent.at(-1).type, "begin");
+  assert.equal(h.bridge.editing, true);
+  h.bridge.disconnect();
+});
 
 test("handshake supplies host title; unrelated origins, windows and documents cannot edit", () => {
   const h = harness();

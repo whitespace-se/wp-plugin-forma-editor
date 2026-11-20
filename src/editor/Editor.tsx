@@ -5,6 +5,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { flushSync } from "react-dom";
 import { workflow, type WorkflowState } from "../wordpress/api";
 import { Autosave } from "./Autosave";
 import { observePostLock } from "../wordpress/locks";
@@ -71,6 +72,10 @@ export function Editor({
     Boolean(parentUrl) || initialSection === "content",
   );
   const [navigationOpened, setNavigationOpened] = useState(false);
+  const [contentPlacement, setContentPlacement] = useState<"panel" | "preview">(
+    "panel",
+  );
+  const panelContentFlush = useRef<(() => void) | null>(null);
   const panelRef = useRef<HTMLElement>(null);
   const lastSection = useRef<string | null>(null);
   const sections = useMemo(() => {
@@ -493,6 +498,7 @@ export function Editor({
         postId,
         title: input.title,
         content: input.content,
+        inlineEnabled: contentPlacement === "preview",
         busy,
         writable: Boolean(
           state &&
@@ -503,13 +509,26 @@ export function Editor({
         ),
       },
       change: (content) => editField("content", content, true),
+      prepare: () => {
+        // Finish the panel DOM island before granting ownership to the iframe.
+        // A synchronous commit also sends its latest working value in state.
+        flushSync(() => {
+          panelContentFlush.current?.();
+          setContentPlacement("preview");
+          lastSection.current = section;
+          setContentOpened(true);
+          setSection("content");
+        });
+      },
       select: async () => {
         if (!(await switchObject(0, "content")))
           throw new Error("Object switch failed");
       },
       panel: () => {
-        if (postId === pageId) navigate("content");
-        else void switchObject(0, "content");
+        if (postId === pageId) {
+          setContentPlacement("panel");
+          navigate("content");
+        } else void switchObject(0, "content");
       },
       media: inlineMedia,
       leave: () => {
@@ -732,26 +751,63 @@ export function Editor({
               }
             }}
           />
-          {contentOpened && state && saver && (
-            <ContentEditor
-              key={contentVersion}
-              markup={editorMarkup}
-              wpautop={wpautop}
-              initialContent={input.content}
-              disabled={disabled}
-              label={labels.content}
-              errorLabel={labels.editorError}
-              onChange={(value) => editField("content", value)}
-              onLeave={() => void refreshPreview()}
-              beforeEnter={() => {
-                if (!contentBridge.editing) return null;
-                return contentBridge.flush().catch((failure: Error) => {
-                  setError(failure.message);
-                  throw failure;
-                });
-              }}
-            />
+          {!parentUrl && (
+            <div className="forma-editor__placement">
+              {contentPlacement === "preview" && (
+                <p className="description" role="status">
+                  Du redigerar innehållet direkt på sidan.
+                </p>
+              )}
+              <button
+                type="button"
+                className="button"
+                disabled={disabled}
+                onClick={async () => {
+                  try {
+                    if (contentPlacement === "preview") {
+                      await contentBridge.flush();
+                      setContentPlacement("panel");
+                      void refreshPreview();
+                    } else if (!contentBridge.start()) {
+                      setError(
+                        "Förhandsvisningen är inte redo för redigering. Försök igen när den har laddats.",
+                      );
+                    }
+                  } catch (failure) {
+                    setError((failure as Error).message);
+                  }
+                }}
+              >
+                {contentPlacement === "preview"
+                  ? "Redigera i panelen"
+                  : "Redigera på sidan"}
+              </button>
+            </div>
           )}
+          {contentOpened &&
+            state &&
+            saver &&
+            (parentUrl || contentPlacement === "panel") && (
+              <ContentEditor
+                flushRef={panelContentFlush}
+                key={contentVersion}
+                markup={editorMarkup}
+                wpautop={wpautop}
+                initialContent={input.content}
+                disabled={disabled}
+                label={labels.content}
+                errorLabel={labels.editorError}
+                onChange={(value) => editField("content", value)}
+                onLeave={() => void refreshPreview()}
+                beforeEnter={() => {
+                  if (!contentBridge.editing) return null;
+                  return contentBridge.flush().catch((failure: Error) => {
+                    setError(failure.message);
+                    throw failure;
+                  });
+                }}
+              />
+            )}
         </div>
         {(lockError || error || saveError) && (
           <div role="alert" className="notice notice-error inline">
