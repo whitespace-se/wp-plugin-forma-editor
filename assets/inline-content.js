@@ -215,6 +215,12 @@
     // Show the editable source while TinyMCE finishes loading its skin.
     // Keep the filtered subtree separately for a failed or unchanged session.
     surface.innerHTML = window.wp.editor.autop(original);
+    // Reuse core's labelled placeholder without loading its iframe stylesheet
+    // into the frontend document. The editor base URL supports WP subdirectories.
+    surface.style.setProperty(
+      "--forma-more-image",
+      `url("${window.tinymce.baseURL}/skins/wordpress/images/more-2x.png")`,
+    );
     starting = true;
     const currentGeneration = ++generation;
     startTimer = setTimeout(() => {
