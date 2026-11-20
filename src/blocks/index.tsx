@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import { createRoot } from "react-dom/client";
 import { createPortal } from "react-dom";
+import { observeInsertionSize } from "./insertion-size";
 import "./style.css";
 
 // The installed WordPress owns these packages and React. Do not bundle a second
@@ -43,6 +44,7 @@ type WP = {
   blockLibrary: { registerCoreBlocks: () => void };
   blockEditor: Record<string, Component>;
   components: Record<string, any>;
+  data: { useSelect: (callback: (select: any) => any, deps: unknown[]) => any };
   hooks: {
     addFilter: (name: string, namespace: string, fn: () => Component) => void;
   };
@@ -220,6 +222,24 @@ export function start(
       });
     }
 
+    function CanvasInsertionSize() {
+      const { previous, next } = wp.data.useSelect((select) => {
+        const store = select("core/block-editor");
+        const point = store.getBlockInsertionPoint();
+        const order = store.getBlockOrder(point.rootClientId);
+        return {
+          previous: order[point.index - 1],
+          next: order[point.index],
+        };
+      }, []);
+      useLayoutEffect(() => {
+        const block = (id?: string) =>
+          id ? mount.querySelector<HTMLElement>(`[data-block="${id}"]`) : null;
+        return observeInsertionSize(mount, block(previous), block(next));
+      }, [previous, next]);
+      return null;
+    }
+
     function Editor({ initial }: { initial: Block[] }) {
       const [blocks, setBlocks] = useState(initial);
       const [inspector, setInspector] = useState(false);
@@ -385,6 +405,7 @@ export function start(
                   </ObserveTyping>
                 </WritingFlow>
               </BlockTools>
+              <CanvasInsertionSize />
             </div>
             {createPortal(<Popover.Slot />, tools)}
           </BlockEditorProvider>

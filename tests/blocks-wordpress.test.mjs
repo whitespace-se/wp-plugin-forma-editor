@@ -92,7 +92,10 @@ test(
       Object.defineProperty(w, "parent", { value: host });
       for (const script of manifest) {
         for (const code of script.before) host.eval(code);
-        let path = script.path;
+        let path =
+          script.handle === "forma-blocks"
+            ? new URL("../build/blocks.js", import.meta.url)
+            : script.path;
         if (!existsSync(path)) {
           if (script.handle === "forma-blocks")
             path = new URL("../build/blocks.js", import.meta.url);
@@ -101,6 +104,16 @@ test(
         host.eval(readFileSync(path, "utf8"));
         for (const code of script.after) host.eval(code);
       }
+      let editorRegistry;
+      host.wp.hooks.addFilter(
+        "editor.BlockListBlock",
+        "forma/test-registry",
+        (Block) =>
+          function TestBlock(props) {
+            editorRegistry = host.wp.data.useRegistry();
+            return host.React.createElement(Block, props);
+          },
+      );
       const delivered = new JSDOM(
         readFileSync(process.env.FORMA_TEST_HTML, "utf8"),
       );
@@ -156,6 +169,38 @@ test(
       );
       assert.ok(host.document.querySelector(".forma-block-toolbar"));
       assert.equal(w.document.querySelector(".forma-block-toolbar"), null);
+      const canvasBlocks = w.document.querySelectorAll("[data-block]");
+      canvasBlocks[0].getBoundingClientRect = () => ({
+        top: 100,
+        bottom: 160,
+        left: 40,
+        right: 760,
+        width: 720,
+        height: 60,
+      });
+      canvasBlocks[1].getBoundingClientRect = () => ({
+        top: 200,
+        bottom: 240,
+        left: 40,
+        right: 760,
+        width: 720,
+        height: 40,
+      });
+      editorRegistry
+        .dispatch("core/block-editor")
+        .showInsertionPoint(undefined, 1, {
+          __unstableWithInserter: true,
+        });
+      await tick();
+      await tick();
+      const insertion = w.document.querySelector(
+        ".block-editor-block-popover__inbetween > .components-popover__content",
+      );
+      assert.ok(insertion, errors.join("\n"));
+      assert.equal(insertion instanceof host.HTMLElement, false);
+      assert.equal(insertion.style.width, "720px");
+      assert.equal(insertion.style.height, "40px");
+      editorRegistry.dispatch("core/block-editor").hideInsertionPoint();
       const clickHost = (text) =>
         [...host.document.querySelectorAll("button")]
           .find((b) => b.textContent === text)
@@ -182,7 +227,7 @@ test(
         w.document.querySelector("[data-forma-rendered]").hidden,
         true,
       );
-      host.wp.data.dispatch("core/block-editor").clearSelectedBlock();
+      editorRegistry.dispatch("core/block-editor").clearSelectedBlock();
       await tick();
       receive({ type: "flush", requestId: "back" });
       await tick();

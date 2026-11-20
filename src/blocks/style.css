@@ -70,6 +70,11 @@
 .forma-block-editor .wp-block {
   max-width: none;
 }
+/* Municipio resets this margin on rendered .c-image__image, but the editing
+   image has Gutenberg's markup. Keep the same spacing inside its focus frame. */
+.forma-block-editor .wp-block-image img {
+  margin-top: 0;
+}
 .forma-block-toolbar {
   position: sticky;
   top: 0;
