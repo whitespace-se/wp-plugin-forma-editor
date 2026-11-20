@@ -182,6 +182,9 @@
       if (authorized === true) send("end", { content: state.content });
       return;
     }
+    if (defaults.language && config.translations) {
+      window.tinymce.addI18n(defaults.language, config.translations);
+    }
     // The host first unmounts its editor and transfers the current source.
     // Merely clicking or focusing this surface never grants ownership.
     if (authorized !== true || !state.inlineEnabled) {

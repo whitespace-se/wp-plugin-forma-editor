@@ -369,7 +369,15 @@ final class Plugin
             foreach (['inline-content-policy.js', 'inline-content.js'] as $file) {
                 wp_print_script_tag([
                     'src' => add_query_arg('ver', (string) filemtime($assets . $file), $base . $file),
-                    'data-config' => wp_json_encode(['pageId' => $page, 'origin' => self::editor_origin(), 'editor' => $editor_settings]),
+                    'data-config' => wp_json_encode([
+                        'pageId' => $page,
+                        'origin' => self::editor_origin(),
+                        'editor' => $editor_settings,
+                        // Core prints translations in a raw inline script. A
+                        // frontend CSP may reject that script; transport the
+                        // same strings as data, without loading a language URL.
+                        'translations' => json_decode(\_WP_Editors::wp_mce_translation($editor_settings['language'] ?? '', true), true),
+                    ]),
                 ]);
             }
             echo '<link rel="stylesheet" href="' . esc_url(add_query_arg('ver', (string) filemtime($assets . 'inline-content.css'), $base . 'inline-content.css')) . '">';

@@ -85,10 +85,28 @@ for (const missingSettings of [true, false])
         Object.defineProperty(w, "parent", { value: host });
         w.CSS = { supports: () => true };
         w.ResizeObserver = class {
-          observe() {}
+          observe(target) {
+            assert.ok(
+              target instanceof w.Element,
+              "ResizeObserver requires an Element",
+            );
+          }
+          disconnect() {}
         };
         w.IntersectionObserver = class {
           observe() {}
+        };
+        if (process.env.FORMA_TEST_EXTENSIONS) {
+          w.eval(readFileSync(process.env.FORMA_TEST_EXTENSIONS, "utf8"));
+        }
+        const supplied = process.env.FORMA_TEST_CONFIG
+          ? JSON.parse(readFileSync(process.env.FORMA_TEST_CONFIG, "utf8"))
+          : {};
+        const scriptRequests = [];
+        const append = w.document.head.appendChild.bind(w.document.head);
+        w.document.head.appendChild = (node) => {
+          if (node.tagName === "SCRIPT") scriptRequests.push(node.src);
+          return append(node);
         };
         Object.defineProperty(w.document, "currentScript", {
           value: {
@@ -96,17 +114,17 @@ for (const missingSettings of [true, false])
               config: JSON.stringify({
                 origin: "https://nora-m5.test",
                 pageId: 7,
+                translations: supplied.translations || {
+                  Bold: "Fet",
+                  Italic: "Kursiv",
+                },
                 editor: missingSettings
                   ? null
                   : {
-                      ...(process.env.FORMA_TEST_CONFIG
-                        ? JSON.parse(
-                            readFileSync(process.env.FORMA_TEST_CONFIG, "utf8"),
-                          ).editor
-                        : {}),
+                      ...supplied.editor,
                       theme: "modern",
                       skin: false,
-                      language: "en",
+                      language: supplied.editor?.language || "sv",
                     },
               }),
             },
@@ -197,6 +215,17 @@ for (const missingSettings of [true, false])
             .editing,
           "true",
         );
+        assert.equal(w.tinymce.translate("Bold"), "Fet");
+        assert.deepEqual(
+          scriptRequests,
+          [],
+          "preloaded locale and plugins must not trigger dynamic scripts",
+        );
+        if (process.env.FORMA_TEST_EXTENSIONS)
+          assert.equal(
+            w.tinymce.get("forma-inline-content").municipioEditorExtensions,
+            true,
+          );
         receive({ type: "flush", requestId: "noop" });
         assert.equal(sent.at(-1).type, "flushed");
         assert.equal(
