@@ -52,6 +52,11 @@
 .forma-inline-content-tools .mce-tinymce {
   border: 0;
 }
+/* The inline skin loads after WordPress and assumes a dark active button.
+   Keep core's dark icons on its light active toolbar buttons. */
+.mce-toolbar .mce-btn-group .mce-btn.mce-active .mce-ico {
+  color: #50575e;
+}
 .forma-inline-content-tools .forma-content-error {
   margin: 6px;
 }
