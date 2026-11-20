@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 let instanceSequence = 0;
 
@@ -45,6 +46,7 @@ export function ContentEditor({
   onLeave,
   beforeEnter,
   flushRef,
+  actions,
 }: {
   markup: string;
   wpautop: boolean;
@@ -56,12 +58,14 @@ export function ContentEditor({
   onLeave: () => void;
   beforeEnter: () => Promise<void> | null;
   flushRef?: React.MutableRefObject<(() => void) | null>;
+  actions?: React.ReactNode;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const callbacks = useRef({ onChange, onLeave, disabled, beforeEnter });
   callbacks.current = { onChange, onLeave, disabled, beforeEnter };
   const [failed, setFailed] = useState(false);
   const [editorId, setEditorId] = useState("");
+  const [actionHost, setActionHost] = useState<HTMLElement | null>(null);
   const liveId = useRef("");
   const entering = useRef(false);
   const sync = useRef<((value: string) => void) | null>(null);
@@ -92,6 +96,10 @@ export function ContentEditor({
     const content = node.parentElement!;
     const labelElement = content.querySelector<HTMLElement>("label")!;
     const tools = node.querySelector<HTMLElement>(".wp-editor-tools")!;
+    // React owns only this slot; WordPress retains its media buttons and tabs.
+    const actionSlot = document.createElement("span");
+    (node.querySelector(".wp-media-buttons") ?? tools).prepend(actionSlot);
+    setActionHost(actionSlot);
     // Keep the stacked sticky rows aligned when labels/buttons wrap. Leave
     // WordPress's DOM intact so media, tabs and editor teardown retain ownership.
     const measureChrome = () => {
@@ -276,6 +284,7 @@ export function ContentEditor({
   return (
     <div className="forma-editor__content">
       <label htmlFor={editorId}>{label}</label>
+      {actionHost && createPortal(actions, actionHost)}
       {failed && <p role="alert">{errorLabel}</p>}
       <div
         ref={host}

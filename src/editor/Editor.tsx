@@ -536,6 +536,32 @@ export function Editor({
       },
     });
   });
+  const placementButton = !parentUrl && (
+    <button
+      type="button"
+      className="button"
+      disabled={disabled}
+      onClick={async () => {
+        try {
+          if (contentPlacement === "preview") {
+            await contentBridge.flush();
+            setContentPlacement("panel");
+            void refreshPreview();
+          } else if (!contentBridge.start()) {
+            setError(
+              "Förhandsvisningen är inte redo för redigering. Försök igen när den har laddats.",
+            );
+          }
+        } catch (failure) {
+          setError((failure as Error).message);
+        }
+      }}
+    >
+      {contentPlacement === "preview"
+        ? "Redigera i panelen"
+        : "Redigera på sidan"}
+    </button>
+  );
   return (
     <>
       <aside
@@ -751,37 +777,17 @@ export function Editor({
               }
             }}
           />
-          {!parentUrl && (
-            <div className="forma-editor__placement">
-              {contentPlacement === "preview" && (
-                <p className="description" role="status">
-                  Du redigerar innehållet direkt på sidan.
-                </p>
-              )}
-              <button
-                type="button"
-                className="button"
-                disabled={disabled}
-                onClick={async () => {
-                  try {
-                    if (contentPlacement === "preview") {
-                      await contentBridge.flush();
-                      setContentPlacement("panel");
-                      void refreshPreview();
-                    } else if (!contentBridge.start()) {
-                      setError(
-                        "Förhandsvisningen är inte redo för redigering. Försök igen när den har laddats.",
-                      );
-                    }
-                  } catch (failure) {
-                    setError((failure as Error).message);
-                  }
-                }}
-              >
-                {contentPlacement === "preview"
-                  ? "Redigera i panelen"
-                  : "Redigera på sidan"}
-              </button>
+          {!parentUrl && contentPlacement === "preview" && (
+            <div
+              className="forma-editor__content"
+              role="group"
+              aria-labelledby="forma-content-label"
+            >
+              <label id="forma-content-label">{labels.content}</label>
+              <p className="description" role="status">
+                Du redigerar innehållet direkt på sidan.
+              </p>
+              {placementButton}
             </div>
           )}
           {contentOpened &&
@@ -789,6 +795,7 @@ export function Editor({
             saver &&
             (parentUrl || contentPlacement === "panel") && (
               <ContentEditor
+                actions={placementButton}
                 flushRef={panelContentFlush}
                 key={contentVersion}
                 markup={editorMarkup}
