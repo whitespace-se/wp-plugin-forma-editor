@@ -1,4 +1,6 @@
 #forma-inline-content {
+  /* TinyMCE appends resize handles here using coordinates relative to this root. */
+  position: relative;
   anchor-name: --forma-content;
   min-height: 2em;
   /* TinyMCE's inline skin sets 1.3; keep the surrounding page's typography. */

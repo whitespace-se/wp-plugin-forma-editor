@@ -360,7 +360,7 @@ final class Plugin
             // WordPress after core, before any editor can start (also in debug).
             add_action('wp_tiny_mce_init', static function (): void {
                 global $tinymce_version;
-                foreach (['themes/modern/theme', 'plugins/wordpress/plugin', 'plugins/lists/plugin', 'plugins/paste/plugin', 'plugins/link/plugin', 'plugins/image/plugin'] as $script) {
+                foreach (['themes/modern/theme', 'plugins/wordpress/plugin', 'plugins/lists/plugin', 'plugins/paste/plugin', 'plugins/link/plugin', 'plugins/image/plugin', 'plugins/wpeditimage/plugin'] as $script) {
                     wp_print_script_tag([
                         'src' => add_query_arg('ver', (string) $tinymce_version, includes_url('js/tinymce/' . $script . '.min.js')),
                     ]);

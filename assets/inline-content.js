@@ -22,6 +22,44 @@
     readyTimer;
   let startTimer,
     generation = 0;
+  let imageFrame = null;
+  const installImageDialog = () => {
+    // Forma's admin and preview share an origin. Keep WordPress's actual media
+    // frame in the admin document; wpeditimage retains its own image metadata,
+    // update/replace callbacks and undo transaction in this document.
+    let media;
+    try {
+      if (parent.location.origin !== config.origin) return;
+      media = parent.wp?.media;
+    } catch {
+      return;
+    }
+    if (typeof media !== "function") return;
+    const proxy = (settings) => {
+      if (!editing || !writable() || state.busy || imageFrame)
+        throw new Error("Bildredigeringen är inte tillgänglig just nu.");
+      const frame = media(settings);
+      imageFrame = frame;
+      mediaRequest = crypto.randomUUID();
+      frame.on("close", () => {
+        // Core closes before update/replace. Keep the session protected until
+        // its callbacks have updated the image and restored the selection.
+        setTimeout(() => {
+          if (imageFrame !== frame) return;
+          imageFrame = null;
+          mediaRequest = null;
+          frame.remove();
+          if (editing) {
+            editor.focus();
+            emit();
+          }
+        }, 0);
+      });
+      return frame;
+    };
+    proxy.events = media.events;
+    window.wp.media = proxy;
+  };
   const send = (type, extra = {}) =>
     parent.postMessage(
       {
@@ -248,7 +286,7 @@
         toolbar2: "",
         toolbar3: "",
         toolbar4: "",
-        plugins: "wordpress,lists,paste,link,image",
+        plugins: "wordpress,lists,paste,link,image,wpeditimage",
         external_plugins: {},
         wpautop: true,
         wp_paste_filters: false,
@@ -261,6 +299,15 @@
         block_formats: "Stycke=p;Rubrik 2=h2;Rubrik 3=h3;Rubrik 4=h4",
         setup(instance) {
           editor = instance;
+          installImageDialog();
+          instance.on("remove", () => {
+            const frame = imageFrame;
+            imageFrame = null;
+            if (frame) {
+              mediaRequest = null;
+              frame.remove();
+            }
+          });
           instance.on("init", () =>
             queueMicrotask(() => {
               if (generation !== currentGeneration) {
@@ -467,6 +514,12 @@
     });
     window.addEventListener("blur", () => {
       if (!mediaRequest) finish();
+    });
+    window.addEventListener("pagehide", () => {
+      const frame = imageFrame;
+      imageFrame = null;
+      mediaRequest = null;
+      frame?.remove();
     });
     const ready = () => send("ready", { pageId: config.pageId });
     readyTimer = setInterval(ready, 500);

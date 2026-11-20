@@ -45,7 +45,14 @@ for (const missingSettings of [true, false])
         load("wp-admin/js/editor.js");
         load("wp-includes/js/tinymce/tinymce.min.js");
         load("wp-includes/js/tinymce/themes/modern/theme.js");
-        for (const plugin of ["wordpress", "lists", "paste", "link", "image"])
+        for (const plugin of [
+          "wordpress",
+          "lists",
+          "paste",
+          "link",
+          "image",
+          "wpeditimage",
+        ])
           load(`wp-includes/js/tinymce/plugins/${plugin}/plugin.js`);
         w.eval(
           readFileSync(
@@ -81,7 +88,46 @@ for (const missingSettings of [true, false])
         w.document.body.innerHTML =
           '<article id="article"><div id="forma-inline-content" data-forma-post="7"><p class="lead">Theme-generated content</p></div></article>';
         const sent = [];
-        const host = { postMessage: (data) => sent.push(data) };
+        const frames = [];
+        const media = (settings) => {
+          const events = new Map();
+          const states = new Map();
+          const frame = {
+            settings,
+            removed: false,
+            on(name, callback) {
+              events.set(name, [...(events.get(name) ?? []), callback]);
+            },
+            state(name) {
+              return {
+                on: (event, callback) =>
+                  states.set(`${name}:${event}`, callback),
+              };
+            },
+            open() {},
+            detach() {},
+            remove() {
+              this.removed = true;
+            },
+            close() {
+              for (const callback of events.get("close") ?? []) callback();
+            },
+            update(data, replace = false) {
+              this.close();
+              states.get(
+                replace ? "replace-image:replace" : "image-details:update",
+              )(data);
+            },
+          };
+          frames.push(frame);
+          return frame;
+        };
+        media.events = { trigger() {} };
+        const host = {
+          postMessage: (data) => sent.push(data),
+          location: { origin: "https://nora-m5.test" },
+          wp: { media },
+        };
         Object.defineProperty(w, "parent", { value: host });
         w.CSS = { supports: () => true };
         w.ResizeObserver = class {
@@ -339,6 +385,52 @@ for (const missingSettings of [true, false])
         });
         assert.equal(sent.at(-1).type, "change");
         assert.match(sent.at(-1).content, /Inserted image/);
+        const selectedImage = surface.querySelector(
+          'img[alt="Inserted image"]',
+        );
+        inline.selection.select(selectedImage);
+        inline.nodeChanged();
+        assert.ok(inline.buttons.wp_img_remove);
+        inline.buttons.wp_img_edit.onclick();
+        const frame = frames.at(-1);
+        assert.equal(frame.settings.state, "image-details");
+        receive({ type: "flush", requestId: "during-image" });
+        assert.equal(sent.at(-1).type, "blocked");
+        frame.update(
+          {
+            ...frame.settings.metadata,
+            alt: "Updated image",
+            align: "right",
+            url: "/replaced.webp",
+            width: 240,
+            height: 160,
+            size: "full",
+          },
+          true,
+        );
+        await new Promise((resolve) => w.setTimeout(resolve, 30));
+        assert.equal(frame.removed, true);
+        assert.equal(selectedImage.getAttribute("alt"), "Updated image");
+        assert.equal(selectedImage.getAttribute("src"), "/replaced.webp");
+        assert.match(selectedImage.className, /alignright/);
+        assert.match(sent.at(-1).content, /Updated image/);
+        inline.selection.select(selectedImage);
+        inline.buttons.wp_img_edit.onclick();
+        frames.at(-1).close();
+        await new Promise((resolve) => w.setTimeout(resolve, 30));
+        assert.equal(
+          selectedImage.getAttribute("alt"),
+          "Updated image",
+          "cancel preserves the image",
+        );
+        inline.selection.select(selectedImage);
+        inline.buttons.wp_img_remove.onclick();
+        assert.equal(surface.contains(selectedImage), false);
+        inline.undoManager.undo();
+        assert.ok(
+          surface.querySelector('img[alt="Updated image"]'),
+          "image removal can be undone",
+        );
         receive({ type: "flush", requestId: "changed" });
         assert.equal(sent.at(-1).type, "flushed");
         assert.equal(sent.at(-1).requestId, "changed");
