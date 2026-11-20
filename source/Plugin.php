@@ -99,6 +99,10 @@ final class Plugin
         // Generate the same filtered configuration and UI as the classic editor.
         // React mounts the markup later, so core must not auto-initialize it.
         wp_enqueue_media(['post' => $post->ID]);
+        // wp_editor prints editor-buttons and its Dashicons dependency once.
+        // Emit them in the admin head, not into the deferred React DOM island:
+        // core marks captured styles done even while that island is unmounted.
+        wp_print_styles('editor-buttons');
         ob_start();
         wp_editor('', 'forma-content', [
             'textarea_name' => 'content',
