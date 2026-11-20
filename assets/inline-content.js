@@ -375,6 +375,16 @@
       }
     }
   });
+  // Register before preview.js installs its capture guard. That guard stops
+  // propagation (and focus on controls), so a DOMContentLoaded listener would
+  // never receive outside clicks and would leave the editing session active.
+  window.addEventListener(
+    "pointerdown",
+    (event) => {
+      if (!owned(event.target)) finish();
+    },
+    true,
+  );
   document.addEventListener("DOMContentLoaded", () => {
     // Older browsers retain the existing panel, without misplaced controls.
     if (
@@ -443,13 +453,6 @@
     });
     // A link inside editable text must never navigate away from the preview.
     surface.addEventListener("auxclick", (event) => event.preventDefault());
-    window.addEventListener(
-      "pointerdown",
-      (event) => {
-        if (!owned(event.target)) finish();
-      },
-      true,
-    );
     document.addEventListener("focusin", (event) => {
       if (!owned(event.target)) finish();
     });

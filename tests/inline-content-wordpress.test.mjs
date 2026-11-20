@@ -268,7 +268,37 @@ for (const missingSettings of [true, false])
             button,
             "state acknowledgements preserve toolbar focus",
           );
-          receive({ type: "flush", requestId: `repeat-${cycle}` });
+          if (cycle === 1) {
+            const outside = w.document.createElement("button");
+            outside.textContent = "Outside editor";
+            w.document.body.append(outside);
+            const click = new w.MouseEvent("pointerdown", {
+              bubbles: true,
+              cancelable: true,
+            });
+            outside.dispatchEvent(click);
+            assert.equal(
+              click.defaultPrevented,
+              true,
+              "preview guard still blocks outside controls",
+            );
+            assert.equal(
+              sent.at(-1).type,
+              "end",
+              "outside click ends editing even when the guard blocks focus",
+            );
+            assert.equal(
+              w.document.querySelector(".forma-inline-content-outline").dataset
+                .editing,
+              "false",
+            );
+            assert.equal(
+              w.document.querySelector(".forma-inline-content-tools").hidden,
+              true,
+            );
+            assert.equal(surface.textContent, "Theme-generated content");
+            outside.remove();
+          } else receive({ type: "flush", requestId: `repeat-${cycle}` });
           assert.equal(sent.at(-1).content, source);
         }
         surface.focus();
