@@ -55,7 +55,7 @@ add_action('wp_enqueue_scripts', [Blocks::class, 'enqueue'], 100);
 add_action('admin_menu', [Plugin::class, 'register_screen']);
 add_action('admin_bar_menu', [Plugin::class, 'adapt_admin_bar'], 100);
 add_filter('show_admin_bar', [Plugin::class, 'preview_admin_bar'], 100);
-add_filter('use_block_editor_for_post', [Plugin::class, 'select_classic_editor'], 100, 2);
+add_filter('use_block_editor_for_post', [Plugin::class, 'select_editor'], 100, 2);
 add_action('template_redirect', [Plugin::class, 'preview_headers']);
 add_action('wp_head', [Plugin::class, 'preview_guard'], -100);
 add_filter('Municipio/viewData', [Plugin::class, 'inline_title_data'], 100);

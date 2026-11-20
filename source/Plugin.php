@@ -50,12 +50,27 @@ final class Plugin
         return add_query_arg('forma-classic', '1', get_edit_post_link($post->ID, 'raw'));
     }
 
-    public static function select_classic_editor(bool $use_block_editor, \WP_Post $post): bool
+    public static function block_url(\WP_Post $post): string
     {
-        // Scope the classic destination to this explicit navigation, not other
-        // WordPress editing links or the site's editor preferences.
-        return isset($_GET['forma-classic']) && $_GET['forma-classic'] === '1' && self::can_open($post)
-            ? false : $use_block_editor;
+        return add_query_arg('forma-block', '1', get_edit_post_link($post->ID, 'raw'));
+    }
+
+    public static function can_open_block_editor(\WP_Post $post): bool
+    {
+        return self::supported_post($post) && self::can_open($post)
+            && post_type_supports($post->post_type, 'editor');
+    }
+
+    public static function select_editor(bool $use_block_editor, \WP_Post $post): bool
+    {
+        // Override Municipio's editor preference only for the explicitly opened
+        // post, retaining REST/editor support and the current user's capability.
+        if (!is_admin() || self::request_post_id('post') !== $post->ID || !self::can_open($post)) {
+            return $use_block_editor;
+        }
+        if (($_GET['forma-classic'] ?? '') === '1') return false;
+        if (($_GET['forma-block'] ?? '') === '1' && self::can_open_block_editor($post)) return true;
+        return $use_block_editor;
     }
 
     public static function is_editor_screen(): bool
@@ -251,7 +266,7 @@ final class Plugin
 
         $forma = self::is_editor_screen();
         $screen = get_current_screen();
-        if (!$forma && (!$screen || $screen->base !== 'post' || $screen->is_block_editor())) {
+        if (!$forma && (!$screen || $screen->base !== 'post')) {
             return;
         }
         $post = $forma ? get_post(self::request_post_id('post')) : get_post();
@@ -269,17 +284,28 @@ final class Plugin
                 'href' => self::view_url($context),
             ]);
         }
+        $block = !$forma && $screen->is_block_editor();
         $bar->add_node([
             'id' => 'forma-editor-switch',
-            'title' => $forma ? __('Editor: Visuell', 'forma-editor') : __('Editor: Klassisk', 'forma-editor'),
+            'title' => $forma ? __('Editor: Visuell', 'forma-editor') : ($block ? __('Editor: Gutenberg/Block', 'forma-editor') : __('Editor: Klassisk', 'forma-editor')),
             'href' => false,
         ]);
-        $bar->add_node([
-            'id' => 'forma-editor-switch-target',
-            'parent' => 'forma-editor-switch',
-            'title' => $forma ? __('Klassisk editor', 'forma-editor') : __('Visuell editor', 'forma-editor'),
-            'href' => $forma ? self::classic_url($post) : self::editor_url($post),
-        ]);
+        $choices = [
+            'visual' => [$forma, __('Visuell editor', 'forma-editor'), self::editor_url($post)],
+            'classic' => [!$forma && !$block, __('Klassisk editor', 'forma-editor'), self::classic_url($post)],
+        ];
+        if (self::can_open_block_editor($post)) {
+            $choices['block'] = [$block, __('Gutenberg/Block', 'forma-editor'), self::block_url($post)];
+        }
+        foreach ($choices as $key => [$active, $title, $href]) {
+            if ($active) continue;
+            $bar->add_node([
+                'id' => 'forma-editor-switch-' . $key,
+                'parent' => 'forma-editor-switch',
+                'title' => $title,
+                'href' => $href,
+            ]);
+        }
     }
 
     public static function is_frame_request(): bool
