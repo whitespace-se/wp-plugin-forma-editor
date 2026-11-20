@@ -5,11 +5,11 @@ post titles and classic-editor content alongside a site preview. It uses
 WordPress autosaves, revisions, editing locks and draft/published states. This
 alpha also includes inline page-title editing in Municipio previews, selected
 ACF navigation and color-theme fields, and separate editing of existing
-Modularity text modules. This experimental branch adds inline body editing from
-the original field source, with a mutually exclusive panel editor for
-Visual/Code editing. Unsupported source stays in the panel. General ACF/module
-support and Gutenberg integration are not included. Use the classic editor for
-unsupported fields and publishing options.
+Modularity text modules. Alpha.3 adds inline body editing from the original
+field source, with a mutually exclusive panel editor for Visual/Code editing.
+Unsupported source stays in the panel. General ACF/module support and Gutenberg
+integration are not included. Use the classic editor for unsupported fields and
+publishing options.
 
 ## Development
 
@@ -29,7 +29,7 @@ supported-version matrix has not yet been verified.
 Install the plugin directory including `build/` in WordPress and activate it.
 The Composer package is `whitespace-se/wp-plugin-forma-editor`, installed as
 `forma-editor` through `composer/installers`. Use the GitHub VCS repository and
-the exact `0.1.0-alpha.2` requirement. Installable ZIP files are provided with
+the exact `0.1.0-alpha.3` requirement. Installable ZIP files are provided with
 [GitHub releases](https://github.com/whitespace-se/wp-plugin-forma-editor/releases).
 The frontend toolbar's edit link opens Forma for published posts and drafts. Use
 the toolbar to view the page or switch to the classic editor. Published content

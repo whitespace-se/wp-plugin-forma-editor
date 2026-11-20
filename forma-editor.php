@@ -3,7 +3,7 @@
  * Plugin Name: Forma Editor
  * Plugin URI: https://github.com/whitespace-se/wp-plugin-forma-editor
  * Description: A visual editing workspace for WordPress and Municipio.
- * Version: 0.1.0-alpha.2
+ * Version: 0.1.0-alpha.3
  * Requires at least: 6.6
  * Requires PHP: 8.1
  * Author: Whitespace
@@ -20,7 +20,7 @@ namespace Whitespace\FormaEditor;
 defined('ABSPATH') || exit;
 
 define('FORMA_EDITOR_FILE', __FILE__);
-define('FORMA_EDITOR_VERSION', '0.1.0-alpha.2');
+define('FORMA_EDITOR_VERSION', '0.1.0-alpha.3');
 
 $autoload = __DIR__ . '/vendor/autoload.php';
 if (is_readable($autoload)) {
